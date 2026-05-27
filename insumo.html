@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insumos · Proyección de Stock</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --border2: #ccc9be;
+    --text: #1a1916;
+    --text-muted: #7c7a72;
+    --text-light: #a8a69e;
+    --ok: #1a7a4a;
+    --ok-bg: #eaf6ef;
+    --ok-border: #b6dfc9;
+    --alerta: #b35a00;
+    --alerta-bg: #fff4e6;
+    --alerta-border: #f0c896;
+    --critico: #c0392b;
+    --critico-bg: #fdf0ee;
+    --critico-border: #f0b8b2;
+    --accent: #1a1916;
+    --tag-bg: #ede9e0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--text);
+    color: #f5f4f0;
+    padding: 0 36px;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 22px 0;
+  }
+  .brand-line {
+    width: 4px;
+    height: 36px;
+    background: #f5f4f0;
+    opacity: 0.3;
+  }
+  .header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .header-sub {
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    opacity: 0.45;
+    margin-top: 3px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    border-left: 1px solid rgba(255,255,255,0.1);
+    padding: 0 0 0 24px;
+  }
+  .header-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    opacity: 0.5;
+  }
+  .header-objetivo {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ALERTA BANNER */
+  .alerta-banner {
+    background: #fffbf0;
+    border-bottom: 2px solid #f0c030;
+    padding: 12px 36px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12.5px;
+    color: #7a5800;
+  }
+  .alerta-banner strong { font-weight: 600; }
+  .alerta-icon { font-size: 16px; }
+
+  /* MAIN */
+  .main { padding: 28px 36px; max-width: 1500px; margin: 0 auto; }
+
+  /* STATS */
+  .stats-row {
+    display: grid;
+    grid-template-columns: 180px repeat(4, 1fr);
+    gap: 0;
+    margin-bottom: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .stat-block {
+    padding: 20px 24px;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+    position: relative;
+  }
+  .stat-block:last-child { border-right: none; }
+  .stat-block:hover { background: #faf9f6; }
+  .stat-block.active { background: var(--text); }
+  .stat-block.active .stat-num { color: #f5f4f0; }
+  .stat-block.active .stat-lbl { color: rgba(245,244,240,0.5); }
+  .stat-block.active .stat-desc { color: rgba(245,244,240,0.35); }
+  .stat-lbl {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .stat-num {
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-num.ok { color: var(--ok); }
+  .stat-num.alerta { color: var(--alerta); }
+  .stat-num.critico { color: var(--critico); }
+  .stat-desc {
+    font-size: 10.5px;
+    color: var(--text-light);
+    margin-top: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .stat-block-total { border-right: 2px solid var(--border2); }
+
+  /* CONTROLS */
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .search-box {
+    flex: 1;
+    min-width: 240px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.12s;
+  }
+  .search-box:focus { border-color: var(--text); }
+  .search-box::placeholder { color: var(--text-light); }
+  .dep-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+    min-width: 180px;
+  }
+  .sort-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.12s;
+  }
+  .sort-btn:hover { border-color: var(--text); color: var(--text); }
+  .sort-btn.active { background: var(--text); color: #f5f4f0; border-color: var(--text); }
+
+  /* LEGEND */
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 10px;
+  }
+  .table-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .legend {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+  }
+  .leg-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* DEPOSITO SECTIONS */
+  .deposito-section {
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .deposito-header {
+    background: var(--text);
+    padding: 13px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .deposito-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #f5f4f0;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .deposito-badges {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .dep-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.03em;
+  }
+  .dep-badge.ok      { background: rgba(26,122,74,0.25);  color: #6fdaa0; }
+  .dep-badge.alerta  { background: rgba(179,90,0,0.25);   color: #ffc875; }
+  .dep-badge.critico { background: rgba(192,57,43,0.3);   color: #ff9d94; }
+  .dep-badge.total   { background: rgba(255,255,255,0.08); color: rgba(245,244,240,0.5); }
+
+  /* TABLE */
+  .table-wrap {
+    background: var(--surface);
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: #f0ede6;
+    border-bottom: 2px solid var(--border2);
+    padding: 9px 16px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    white-space: nowrap;
+    user-select: none;
+    cursor: pointer;
+  }
+  thead th:hover { color: var(--text); }
+  thead th.th-right { text-align: right; }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.08s;
+  }
+  tbody tr:hover { background: #faf9f7; }
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 10px 16px;
+    font-size: 12.5px;
+    vertical-align: middle;
+  }
+  .td-producto {
+    font-weight: 500;
+    font-size: 12.5px;
+    max-width: 340px;
+  }
+  .td-mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* KG ELABORADOS — hero cell */
+  .kg-cell { min-width: 220px; }
+  .kg-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .kg-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .kg-num.ok     { color: var(--ok); }
+  .kg-num.alerta { color: var(--alerta); }
+  .kg-num.critico { color: var(--critico); }
+  .kg-num.sin_stock, .kg-num.negativo { color: var(--text-light); }
+  .kg-sublabel {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-light);
+    margin-top: 2px;
+  }
+  .kg-bar-bg {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 5px;
+  }
+  .kg-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .kg-bar-fill.ok      { background: var(--ok); }
+  .kg-bar-fill.alerta  { background: var(--alerta); }
+  .kg-bar-fill.critico { background: var(--critico); }
+  .kg-bar-fill.sin_stock, .kg-bar-fill.negativo { background: #d0cdc6; }
+
+  /* ESTADO PILL */
+  .estado-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .estado-pill.ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-border); }
+  .estado-pill.alerta { background: var(--alerta-bg); color: var(--alerta); border-color: var(--alerta-border); }
+  .estado-pill.critico, .estado-pill.sin_stock { background: var(--critico-bg); color: var(--critico); border-color: var(--critico-border); }
+  .estado-pill.negativo { background: #f5f4f0; color: var(--text-muted); border-color: var(--border2); }
+
+  /* PENDIENTE BADGE */
+
+  /* EMPTY */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* NOTE footer */
+  .footer-note {
+    margin-top: 20px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.8;
+  }
+  .footer-note strong { color: var(--text); font-weight: 600; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  tr.row-anim { animation: fadeIn 0.18s ease both; }
+
+  @media (max-width: 900px) {
+    .main { padding: 16px; }
+    .header { padding: 0 16px; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .alerta-banner { padding: 12px 16px; }
+  }
+/* ─── LOGIN SCREEN ────────────────────────────────────────────────────── */
+  #login-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
+  }
+  #login-screen.hidden { display: none; }
+  .login-card {
+    background: #fff; border-radius: 16px; padding: 40px 48px;
+    text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,.10); min-width: 320px;
+  }
+  .login-logo { font-size: 42px; margin-bottom: 12px; }
+  .login-title { font-size: 20px; font-weight: 700; color: #1a1916; margin-bottom: 6px; }
+  .login-sub { font-size: 12px; color: #888; margin-bottom: 32px; line-height: 1.6; }
+  .btn-google {
+    display: flex; align-items: center; gap: 10px; padding: 11px 22px;
+    border: 1.5px solid #ddd; border-radius: 8px; background: #fff;
+    cursor: pointer; font-size: 13px; font-weight: 500; color: #333;
+    margin: 0 auto; transition: box-shadow .15s; font-family: inherit;
+  }
+  .btn-google:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">📦</div>
+    <div class="login-title">Tablero Insumos</div>
+    <div class="login-sub">Ingresá con tu cuenta de Google<br>para acceder al tablero</div>
+    <button class="btn-google" onclick="signInGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 6.294C4.672 4.167 6.656 3.58 9 3.58z"/></svg>
+      Ingresar con Google
+    </button>
+  </div>
+</div>
+
+<header class="header">
+  <div class="header-brand">
+    <div>
+      <h1>Tablero Rendimiento de Insumos</h1>
+      <div class="header-sub">Proyección de Insumos &nbsp;·&nbsp; Dos Hermanos</div>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div class="header-date" id="fechaBadge">—</div>
+    <div class="header-objetivo">🎯 Objetivo: 30 días stock</div>
+    <a id="btnAccesos" href="https://tablero-insumos-production.up.railway.app/admin/accesos" target="_blank" style="display:none;font-size:11px;font-family:'IBM Plex Mono',monospace;color:rgba(255,255,255,0.6);text-decoration:none;border:1px solid rgba(255,255,255,0.2);padding:5px 12px;border-radius:6px;letter-spacing:.05em" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">👥 ACCESOS</a>
+    <button onclick="firebase.auth().signOut()" style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:rgba(255,255,255,0.5);background:none;border:none;cursor:pointer;letter-spacing:.05em" id="btnSalir">SALIR</button>
+  </div>
+</header>
+
+<div class="alerta-banner">
+  <span class="alerta-icon">⚡</span>
+  <span><strong>Nuevo objetivo de inventario:</strong> pasamos a 30 días de stock. Mayor atención a insumos críticos y bajos — el riesgo de quiebre aumenta. Los estados son referenciales y serán ajustados al incorporar el presupuesto de ventas.</span>
+</div>
+
+<div class="main">
+
+  <!-- STATS -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-block stat-block-total active" onclick="filtrar('all', this)">
+      <div class="stat-lbl">Total</div>
+      <div class="stat-num" id="cnt-all">—</div>
+      <div class="stat-desc">insumos</div>
+    </div>
+    <div class="stat-block" onclick="filtrar('ok', this)">
+      <div class="stat-lbl">✓ Stock OK</div>
+      <div class="stat-num ok" id="cnt-ok">—</div>
+      <div class="stat-desc">&gt; 20.000 kg elab.</div>
+    </div>
+    <div class="stat-block" onclick="filtrar('alerta', this)">
+      <div class="stat-lbl">⚠ Atención</div>
+      <div class="stat-num alerta" id="cnt-alerta">—</div>
+      <div class="stat-desc">5.000 – 20.000 kg</div>
+    </div>
+    <div class="stat-block" onclick="filtrar('critico', this)">
+      <div class="stat-lbl">🔴 Crítico</div>
+      <div class="stat-num critico" id="cnt-critico">—</div>
+      <div class="stat-desc">&lt; 5.000 kg elab.</div>
+    </div>
+    <div class="stat-block" onclick="filtrar('sinstock', this)">
+      <div class="stat-lbl">⛔ Sin stock / Neg.</div>
+      <div class="stat-num critico" id="cnt-sin">—</div>
+      <div class="stat-desc">stock cero o negativo</div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <input class="search-box" type="text" id="searchInput" placeholder="Buscar insumo..." oninput="renderTable()">
+    <select class="dep-select" id="depSelect" onchange="renderTable()">
+      <option value="all">Todos los depósitos</option>
+    </select>
+    <button class="sort-btn active" id="sortDep" onclick="toggleSort('deposito')">↕ Depósito</button>
+    <button class="sort-btn" id="sortKg" onclick="toggleSort('rendimiento')">↕ kg elaborados</button>
+    <button class="sort-btn" id="sortStock" onclick="toggleSort('stock')">↕ Stock</button>
+    <button class="sort-btn" id="sortNombre" onclick="toggleSort('producto')">↕ Nombre</button>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-header">
+    <span class="table-count" id="tableCount">Cargando...</span>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:var(--ok)"></div>OK (&gt;20k kg)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--alerta)"></div>Atención (5k–20k)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--critico)"></div>Crítico (&lt;5k)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#d0cdc6"></div>Sin stock / Neg.</div>
+    </div>
+  </div>
+
+  <div id="sectionsContainer"></div>
+  <div id="emptyState" class="empty-state" style="display:none">
+    Sin resultados para ese criterio.
+  </div>
+
+  <div class="footer-note">
+    <strong>Referencias:</strong> &nbsp;
+    Stock actual = unidades físicas en depósito. &nbsp;·&nbsp;
+    <strong>kg elaborados</strong> = stock ÷ consumo por kg de producto terminado. &nbsp;·&nbsp;
+    <strong>* Estado referencial:</strong> basado únicamente en stock disponible vs. umbrales fijos (OK &gt; 20.000 kg · Atención 5.000–20.000 kg · Crítico &lt; 5.000 kg). No refleja aún el presupuesto de ventas — al incorporarlo, los estados se recalcularán según el consumo proyectado real del período.
+  </div>
+
+</div>
+
+<script>
+// ─── FIREBASE AUTH ────────────────────────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAJcKDJeZFjEozLbcdmMWUFs4e8LMS6mao",
+  authDomain: "tablero-insumos.firebaseapp.com",
+  projectId: "tablero-insumos",
+  storageBucket: "tablero-insumos.firebasestorage.app",
+  messagingSenderId: "714130512683",
+  appId: "1:714130512683:web:75ed47c62f336a8b71836e"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+
+const ADMIN_EMAILS = ["martin.o@dos-hermanos.com", "candela.z@dos-hermanos.com"];
+
+firebase.auth().onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('login-screen').classList.add('hidden');
+    // Mostrar botón de accesos solo a admins
+    if (ADMIN_EMAILS.includes(user.email)) {
+      document.getElementById('btnAccesos').style.display = 'inline-block';
+    }
+    registrarAcceso(user.displayName || user.email, user.email);
+    cargarDatos();
+  } else {
+    document.getElementById('login-screen').classList.remove('hidden');
+  }
+});
+
+function signInGoogle() {
+  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(console.error);
+}
+
+const API = 'https://tablero-insumos-production.up.railway.app';
+
+function registrarAcceso(nombre, email) {
+  fetch(`${API}/api/acceso`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre, email: email || '' })
+  }).catch(() => {});
+}
+
+let items = [];
+let filtroEstado = 'all';
+let sortKey = 'deposito';
+let sortDir = 1;
+
+// ─── CARGA DE DATOS DESDE LA API ──────────────────────────────────────────────
+async function cargarDatos() {
+  document.getElementById('tableCount').textContent = 'Actualizando...';
+  try {
+    const resp = await fetch(`${API}/api/insumos`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    items = data.items.map(i => ({
+      ...i,
+      estado: i.estado === 'bajo' ? 'alerta' : i.estado
+    }));
+
+    document.getElementById('fechaBadge').textContent = 'Stock: ' + data.fecha;
+
+    const sel = document.getElementById('depSelect');
+    const valActual = sel.value;
+    // Limpiar opciones anteriores salvo la primera ("Todos")
+    while (sel.options.length > 1) sel.remove(1);
+    const deps = [...new Set(items.map(i => i.deposito))].sort();
+    deps.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d.replace('DEPOSITO ', '');
+      sel.appendChild(opt);
+    });
+    if (valActual) sel.value = valActual;
+
+    updateStats();
+    renderTable();
+  } catch (err) {
+    document.getElementById('tableCount').textContent = 'Error al cargar datos: ' + err.message;
+    console.error(err);
+  }
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+function init() {
+  // Firebase onAuthStateChanged maneja la carga inicial
+  // Solo configuramos el auto-refresh
+  setInterval(() => {
+    if (auth.currentUser) cargarDatos();
+  }, 5 * 60 * 1000);
+}
+
+// ─── STATS ───────────────────────────────────────────────────────────────────
+function updateStats() {
+  const cnt = { ok: 0, alerta: 0, critico: 0, sin: 0 };
+  items.forEach(i => {
+    if (i.estado === 'ok') cnt.ok++;
+    else if (i.estado === 'alerta') cnt.alerta++;
+    else if (i.estado === 'critico') cnt.critico++;
+    else if (i.estado === 'sin_stock' || i.estado === 'negativo') cnt.sin++;
+  });
+  document.getElementById('cnt-all').textContent = items.length;
+  document.getElementById('cnt-ok').textContent = cnt.ok;
+  document.getElementById('cnt-alerta').textContent = cnt.alerta;
+  document.getElementById('cnt-critico').textContent = cnt.critico;
+  document.getElementById('cnt-sin').textContent = cnt.sin;
+}
+
+// ─── FILTER ──────────────────────────────────────────────────────────────────
+function filtrar(estado, el) {
+  filtroEstado = estado;
+  document.querySelectorAll('.stat-block').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+// ─── SORT ────────────────────────────────────────────────────────────────────
+function toggleSort(key) {
+  if (sortKey === key) { sortDir *= -1; }
+  else { sortKey = key; sortDir = key === 'producto' || key === 'deposito' ? 1 : -1; }
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  const map = { deposito: 'sortDep', rendimiento: 'sortKg', stock: 'sortStock', producto: 'sortNombre' };
+  if (map[key]) document.getElementById(map[key]).classList.add('active');
+  renderTable();
+}
+
+// ─── FORMAT ──────────────────────────────────────────────────────────────────
+function fmt(n, d = 0) {
+  if (n === null || n === undefined) return '—';
+  return n.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function estadoLabel(e) {
+  return { ok: '✓ OK', alerta: '⚠ Atención', critico: '🔴 Crítico', sin_stock: '⛔ Sin stock', negativo: '⛔ Negativo' }[e] || e;
+}
+function estadoCss(e) {
+  if (e === 'ok') return 'ok';
+  if (e === 'alerta') return 'alerta';
+  if (e === 'critico' || e === 'sin_stock') return 'critico';
+  return 'negativo';
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function renderTable() {
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const dep = document.getElementById('depSelect').value;
+
+  let filtered = items.filter(i => {
+    const mS = !search || i.producto.toLowerCase().includes(search) || i.deposito.toLowerCase().includes(search);
+    const mD = dep === 'all' || i.deposito === dep;
+    let mE = filtroEstado === 'all';
+    if (!mE) {
+      if (filtroEstado === 'sinstock') mE = i.estado === 'sin_stock' || i.estado === 'negativo';
+      else mE = i.estado === filtroEstado;
+    }
+    return mS && mD && mE;
+  });
+
+  // Sort within each group: always by producto A-Z when grouping by deposito,
+  // otherwise by chosen sort key
+  const byDeposito = sortKey === 'deposito';
+  filtered.sort((a, b) => {
+    // Primary: always group by deposito
+    const depCmp = a.deposito.localeCompare(b.deposito);
+    if (depCmp !== 0) return depCmp;
+    // Secondary: within deposit, sort by chosen key
+    let va = a[sortKey], vb = b[sortKey];
+    if (sortKey === 'deposito') return a.producto.localeCompare(b.producto);
+    if (va == null) va = sortDir === -1 ? -Infinity : Infinity;
+    if (vb == null) vb = sortDir === -1 ? -Infinity : Infinity;
+    if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+    return (va - vb) * sortDir;
+  });
+
+  document.getElementById('tableCount').textContent = `${filtered.length} insumo${filtered.length !== 1 ? 's' : ''} mostrado${filtered.length !== 1 ? 's' : ''}`;
+
+  const container = document.getElementById('sectionsContainer');
+  const empty = document.getElementById('emptyState');
+
+  if (filtered.length === 0) { container.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  // Group by deposito
+  const groups = {};
+  filtered.forEach(item => {
+    if (!groups[item.deposito]) groups[item.deposito] = [];
+    groups[item.deposito].push(item);
+  });
+
+  const maxRend = Math.max(...filtered.map(i => Math.max(0, i.rendimiento || 0)).filter(isFinite));
+
+  let html = '';
+  let globalIdx = 0;
+
+  Object.keys(groups).sort().forEach(deposito => {
+    const groupItems = groups[deposito];
+    const depLabel = deposito.replace('DEPOSITO ', '');
+
+    // Count states for this deposito
+    const gc = { ok: 0, alerta: 0, critico: 0, sin: 0 };
+    groupItems.forEach(i => {
+      if (i.estado === 'ok') gc.ok++;
+      else if (i.estado === 'alerta') gc.alerta++;
+      else if (i.estado === 'critico') gc.critico++;
+      else if (i.estado === 'sin_stock' || i.estado === 'negativo') gc.sin++;
+    });
+
+    const badgesHtml = [
+      gc.ok      ? `<span class="dep-badge ok">✓ ${gc.ok} OK</span>` : '',
+      gc.alerta  ? `<span class="dep-badge alerta">⚠ ${gc.alerta} Atención</span>` : '',
+      gc.critico ? `<span class="dep-badge critico">🔴 ${gc.critico} Crítico</span>` : '',
+      gc.sin     ? `<span class="dep-badge critico">⛔ ${gc.sin} Sin stock</span>` : '',
+    ].filter(Boolean).join('');
+
+    const rowsHtml = groupItems.map((item) => {
+      const rend = item.rendimiento;
+      const isNeg = item.estado === 'negativo';
+      const isSin = item.estado === 'sin_stock';
+      const noRend = rend === null || rend === undefined;
+      const css = estadoCss(item.estado);
+      const rendPct = maxRend > 0 && !isNeg && !isSin && !noRend ? Math.min(100, rend / maxRend * 100) : 0;
+      const rendFmt = noRend ? '—' : (isNeg ? '—' : (isSin ? '0' : fmt(rend, 0)));
+      const stockFmt = isNeg ? `<span style="color:var(--critico)">${fmt(item.stock, 0)}</span>` : fmt(item.stock, 2);
+      const delay = globalIdx++ * 0.008;
+
+      return `<tr class="row-anim" style="animation-delay:${delay}s">
+        <td class="td-producto">${esc(item.producto)}</td>
+        <td class="td-mono">${stockFmt}</td>
+        <td class="kg-cell">
+          <div class="kg-wrap">
+            <div class="kg-num ${css}">${rendFmt}</div>
+            <div class="kg-sublabel">kg elaborados</div>
+            <div class="kg-bar-bg"><div class="kg-bar-fill ${css}" style="width:${rendPct}%"></div></div>
+          </div>
+        </td>
+        <td><span class="estado-pill ${css}">${estadoLabel(item.estado)}</span></td>
+      </tr>`;
+    }).join('');
+
+    html += `
+    <div class="deposito-section">
+      <div class="deposito-header">
+        <span class="deposito-title">${esc(depLabel)}</span>
+        <div class="deposito-badges">
+          <span class="dep-badge total">${groupItems.length} insumos</span>
+          ${badgesHtml}
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="toggleSort('producto')">Insumo</th>
+              <th class="th-right" onclick="toggleSort('stock')">Stock actual</th>
+              <th onclick="toggleSort('rendimiento')">kg elaborados que alcanza</th>
+              <th>Estado *</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>

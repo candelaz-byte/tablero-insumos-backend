@@ -1,0 +1,6 @@
+servidor: "mc100.dos-hermanos.com",
+  puerto: 1433,
+  baseDeDatos: "backupBaseDeDatos",
+  usuario: "usuario",
+  tabla: "DHOrdenProduccion",
+  propiedadClave: "SQL_PASS",

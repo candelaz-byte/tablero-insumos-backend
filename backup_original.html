@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero Stock & Compras — Mar/Abr/May 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f4f4f0;color:#1a1a18;font-size:13px}
+.page{max-width:1400px;margin:0 auto;padding:1.25rem}
+.topbar{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;padding-bottom:.9rem;border-bottom:2px solid #1A237E}
+.topbar h1{font-size:16px;font-weight:700;margin-bottom:3px;color:#1A237E}
+.topbar .sub{font-size:11px;color:#888;line-height:1.7}
+.criterios{background:#fff;border-left:3px solid #1A237E;border-radius:0 8px 8px 0;padding:8px 14px;margin-bottom:1rem;font-size:10.5px;color:#555;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.crit-item{display:flex;align-items:center;gap:5px}
+.crit-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.sem-wrap{display:grid;grid-template-columns:140px repeat(4,1fr);gap:0;margin-bottom:1rem;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;background:#fff}
+.sem-col{display:flex;flex-direction:column}
+.sem-col-header{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:0 10px;height:36px;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff}
+.sem-cell{height:36px;padding:0 14px;border-top:1px solid rgba(0,0,0,.06);display:flex;justify-content:space-between;align-items:center}
+.sem-cell .estado-lbl{font-size:10px;font-weight:700}
+.sem-cell .estado-num{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.p-hoy{background:#1A237E}.p-mar{background:#1B5E20}.p-abr{background:#E65100}.p-may{background:#4A148C}
+.s-quiebre{background:#FFCDD2;color:#B71C1C}.s-critico{background:#FFE0B2;color:#BF360C}
+.s-bajo{background:#FFF9C4;color:#F57F17}.s-ok{background:#DCEDC8;color:#33691E}
+.s-exceso{background:#BBDEFB;color:#1565C0}.s-excgrave{background:#C5CAE9;color:#1A237E}
+.s-scons{background:#F5F5F5;color:#9E9E9E}
+.charts-row{display:grid;grid-template-columns:1fr 1.6fr;gap:10px;margin-bottom:1rem}
+.chart-card{background:#fff;border:1px solid #e5e5e0;border-radius:10px;padding:12px 14px}
+.chart-title{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.main-tabs{display:flex;gap:0;border-bottom:2px solid #1A237E;margin-bottom:1rem}
+.main-tab{padding:8px 16px;font-size:11.5px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;color:#aaa;margin-bottom:-2px;white-space:nowrap}
+.main-tab.active{color:#1A237E;border-bottom-color:#1A237E;background:#fff;border-radius:8px 8px 0 0}
+.main-tab:hover:not(.active){color:#555}
+.main-pane{display:none}.main-pane.active{display:block}
+.tabs{display:flex;gap:0;border-bottom:2px solid #e5e5e0}
+.tab{padding:7px 15px;font-size:11.5px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:#aaa;margin-bottom:-2px;white-space:nowrap}
+.tab.active{color:#1A237E;border-bottom-color:#1A237E}
+.tab:hover:not(.active){color:#555}
+.filters{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 7px;align-items:center}
+.filters select,.filters input{font-size:11.5px;padding:5px 9px;border:1px solid #ddd;border-radius:6px;background:#fff;outline:none;color:#222}
+.filters select:focus,.filters input:focus{border-color:#1A237E}
+.btn-reset{font-size:11px;padding:5px 11px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;color:#777}
+.btn-reset:hover{background:#f4f4f0}
+.count-lbl{font-size:11px;color:#bbb}
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid #e5e5e0;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:#f8f8f4;padding:6px 8px;text-align:left;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;border-bottom:1px solid #e5e5e0;white-space:nowrap;position:sticky;top:0;z-index:2}
+thead th.right{text-align:right}
+thead th.center{text-align:center}
+.th-mar{background:#E8F5E9!important;color:#1B5E20!important;border-left:2px solid #A5D6A7!important}
+.th-abr{background:#FFF3E0!important;color:#E65100!important;border-left:2px solid #FFCC80!important}
+.th-may{background:#F3E5F5!important;color:#4A148C!important;border-left:2px solid #CE93D8!important}
+tbody tr{border-bottom:.5px solid #f0f0ec}
+tbody tr:hover{background:#fafaf7}
+td{padding:5px 8px;vertical-align:middle}
+td.num{color:#ccc;width:26px;text-align:center;font-size:10px}
+td.art{max-width:250px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+td.right{text-align:right;font-variant-numeric:tabular-nums}
+td.center{text-align:center}
+.badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.b-quiebre{background:#FFCDD2;color:#B71C1C}.b-critico{background:#FFE0B2;color:#BF360C}
+.b-bajo{background:#FFF9C4;color:#F57F17}.b-ok{background:#DCEDC8;color:#33691E}
+.b-exceso{background:#BBDEFB;color:#1565C0}.b-excgrave{background:#C5CAE9;color:#1A237E}
+.b-scons{background:#F5F5F5;color:#9E9E9E}
+.bd-quiebre{background:#FFCDD2;color:#B71C1C}.bd-reponer{background:#FFF9C4;color:#E65100}
+.bd-ok{background:#DCEDC8;color:#2E7D32}.bd-exceso{background:#FFCDD2;color:#C62828}
+.bd-scons{background:#F5F5F5;color:#9E9E9E}
+.sd-quiebre{background:#FFCDD2;color:#B71C1C}.sd-reponer{background:#FFF9C4;color:#E65100}
+.sd-ok{background:#DCEDC8;color:#2E7D32}.sd-exceso{background:#FFCDD2;color:#C62828}
+.sd-scons{background:#F5F5F5;color:#9E9E9E}
+tr.grp td{background:#ECEFF1;font-weight:700;font-size:10.5px;color:#455A64;padding:5px 8px;border-bottom:1px solid #CFD8DC;border-top:1px solid #CFD8DC}
+.dias-bar{display:flex;align-items:center;gap:4px}
+.db-track{background:#eee;border-radius:999px;height:4px;width:46px;flex-shrink:0;overflow:hidden}
+.db-fill{height:4px;border-radius:999px}
+.db-val{font-size:10.5px;font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+td.sep-mar{border-left:2px solid #A5D6A7!important}
+td.sep-abr{border-left:2px solid #FFCC80!important}
+td.sep-may{border-left:2px solid #CE93D8!important}
+.lt-est{color:#aaa;font-style:italic;font-size:10px}
+.moq-badge{font-size:9.5px;color:#1A237E;background:#EEF2FF;padding:1px 6px;border-radius:4px;font-variant-numeric:tabular-nums}
+.params-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;margin-top:.5rem}
+.param-card{background:#fff;border:1px solid #e5e5e0;border-radius:10px;overflow:hidden}
+.param-card-title{background:#1A237E;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:7px 12px}
+.param-table{width:100%;font-size:11px;border-collapse:collapse}
+.param-table td{padding:5px 12px;border-bottom:.5px solid #f0f0ec}
+.param-table td:first-child{color:#777;width:55%}
+.param-table td:last-child{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.param-table tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="topbar">
+  <div>
+    <h1>📦 Tablero Stock & Compras — Proyección Mar / Abr / May 2026</h1>
+    <div class="sub">Stock al 30/03/2026 &nbsp;·&nbsp; 78 artículos &nbsp;·&nbsp; Estados por consumo × lead time &nbsp;·&nbsp; σ calculado oct-25→mar-26</div>
+  </div>
+</div>
+<div class="criterios">
+  <strong style="color:#1A237E;margin-right:2px">Estados:</strong>
+  <div class="crit-item"><div class="crit-dot" style="background:#E24B4A"></div><span><b>Quiebre</b> &lt;0</span></div>
+  <div class="crit-item"><div class="crit-dot" style="background:#D8762A"></div><span><b>Crítico</b> &lt;mín</span></div>
+  <div class="crit-item"><div class="crit-dot" style="background:#D4B800"></div><span><b>Bajo</b> &lt;seg</span></div>
+  <div class="crit-item"><div class="crit-dot" style="background:#639922"></div><span><b>OK</b> 1–2×</span></div>
+  <div class="crit-item"><div class="crit-dot" style="background:#378ADD"></div><span><b>Exceso</b> 2–3×</span></div>
+  <div class="crit-item"><div class="crit-dot" style="background:#1234a0"></div><span><b>Exc. Grave</b> &gt;3×</span></div>
+  <div class="crit-item"><div class="crit-dot" style="background:#B4B2A9"></div><span><b>S/Cons</b></span></div>
+  <span style="color:#aaa;margin-left:6px">|&nbsp; Umbrales = múltiplos del stock mínimo (cons. diario × LT) &nbsp;|&nbsp; Ver detalle en ⚙️ Parámetros</span>
+</div>
+<div class="sem-wrap" id="sem-wrap"></div>
+<div class="charts-row">
+  <div class="chart-card"><div class="chart-title">Distribución estado — hoy</div><div style="position:relative;height:175px"><canvas id="chart-hoy"></canvas></div></div>
+  <div class="chart-card"><div class="chart-title">Urgentes (Quiebre + Crítico + Bajo) por período</div><div style="position:relative;height:175px"><canvas id="chart-comp"></canvas></div></div>
+</div>
+<div class="main-tabs">
+  <div class="main-tab active" onclick="switchMain('tablero')">📋 Vista Compras</div>
+  <div class="main-tab" onclick="switchMain('direccion')">🎯 Vista Dirección</div>
+  <div class="main-tab" onclick="switchMain('grafico')">📊 Compras vs Dirección</div>
+  <div class="main-tab" onclick="switchMain('barras')">📦 Unidades vs Pesos</div>
+  <div class="main-tab" onclick="switchMain('variab')">📉 Variabilidad vs Importe</div>
+  <div class="main-tab" onclick="switchMain('params')">⚙️ Parámetros técnicos</div>
+</div>
+
+<!-- PANE: TABLERO -->
+<div class="main-pane active" id="pane-tablero">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('todos')">Todos (78)</div>
+    <div class="tab" onclick="switchTab('urgentes')" id="tab-urg">🔴 Urgentes hoy</div>
+    <div class="tab" onclick="switchTab('crit-mar')">⚠️ Críticos fin Marzo</div>
+    <div class="tab" onclick="switchTab('crit-abr')">🟠 Críticos fin Abril</div>
+    <div class="tab" onclick="switchTab('crit-may')">🟣 Críticos fin Mayo</div>
+  </div>
+  <div class="filters">
+    <select id="fil-linea" onchange="renderTable()"><option value="">Todas las líneas</option><option>Envasadora</option><option>Inflados</option><option>Libera</option><option>Harina</option><option>Sin asignar</option></select>
+    <select id="fil-estado" onchange="renderTable()"><option value="">Todos los estados</option><option>QUIEBRE</option><option>CRÍTICO</option><option>BAJO</option><option>OK</option><option>EXCESO</option><option>EXCESO GRAVE</option><option>S/CONS</option></select>
+    <input id="fil-buscar" type="text" placeholder="Buscar artículo..." oninput="renderTable()" style="width:185px">
+    <button class="btn-reset" onclick="resetFil()">✕ Limpiar</button>
+    <span class="count-lbl" id="count-lbl"></span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>#</th><th>Artículo / Insumo</th>
+      <th class="right">Stock</th><th class="right">Cons/mes</th>
+      <th class="right">CV%</th><th class="right">MOQ</th>
+      <th class="right">Días hoy</th><th class="center">Estado hoy</th>
+      <th class="right th-mar sep-mar">OC Mar</th><th class="right th-mar">Días fin Mar</th><th class="center th-mar">Est. fin Mar</th>
+      <th class="right th-abr sep-abr">OC Abr</th><th class="right th-abr">Días fin Abr</th><th class="center th-abr">Est. fin Abr</th>
+      <th class="right th-may sep-may">Días fin May</th><th class="center th-may">Est. fin May</th>
+      <th class="center">LT</th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table></div>
+  <div style="font-size:10px;color:#ccc;text-align:right;margin-top:.5rem">Stock 30/03/2026 · LT~ estimado por promedio de línea · MOQ en azul (52/78 cargados)</div>
+</div>
+
+<!-- PANE: DIRECCIÓN -->
+<div class="main-pane" id="pane-direccion">
+  <div style="background:#fff;border-left:3px solid #2E7D32;border-radius:0 8px 8px 0;padding:8px 14px;margin-bottom:1rem;font-size:10.5px;color:#555;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+    <strong style="color:#2E7D32">Objetivo: 20–40 días de stock</strong>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#E24B4A;display:inline-block"></span><b>Quiebre</b> &lt;0d</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#F9A825;display:inline-block"></span><b>Reponer</b> &lt;20d</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#388E3C;display:inline-block"></span><b>OK</b> 20–40d</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#EF5350;display:inline-block"></span><b>Exceso</b> &gt;40d</span>
+  </div>
+  <div id="sem-dir" style="display:grid;grid-template-columns:140px repeat(4,1fr);gap:0;margin-bottom:1rem;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;background:#fff"></div>
+  <div class="filters">
+    <select id="dir-linea" onchange="renderDireccion()"><option value="">Todas las líneas</option><option>Envasadora</option><option>Inflados</option><option>Libera</option><option>Harina</option><option>Sin asignar</option></select>
+    <select id="dir-estado" onchange="renderDireccion()"><option value="">Todos los estados</option><option>QUIEBRE</option><option>REPONER</option><option>OK</option><option>EXCESO</option></select>
+    <input id="dir-buscar" type="text" placeholder="Buscar artículo..." oninput="renderDireccion()" style="width:185px">
+    <button class="btn-reset" onclick="resetDir()">✕ Limpiar</button>
+    <span class="count-lbl" id="dir-count"></span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>#</th><th>Artículo / Insumo</th>
+      <th class="right">Stock</th><th class="right">Cons/mes</th><th class="right">MOQ</th>
+      <th class="right">Días hoy</th><th class="center">Estado hoy</th>
+      <th class="right th-mar sep-mar">OC Mar</th><th class="right th-mar">Días fin Mar</th><th class="center th-mar">Est. fin Mar</th>
+      <th class="right th-abr sep-abr">OC Abr</th><th class="right th-abr">Días fin Abr</th><th class="center th-abr">Est. fin Abr</th>
+      <th class="right th-may sep-may">Días fin May</th><th class="center th-may">Est. fin May</th>
+    </tr></thead>
+    <tbody id="dir-tbody"></tbody>
+  </table></div>
+  <div style="font-size:10px;color:#ccc;text-align:right;margin-top:.5rem">Objetivo dirección: mantener entre 20 y 40 días de stock · Stock al 30/03/2026</div>
+</div>
+
+<!-- PANE: GRÁFICO COMPRAS vs DIRECCIÓN -->
+<div class="main-pane" id="pane-grafico">
+  <div style="background:#fff;border-left:3px solid #7B1FA2;border-radius:0 8px 8px 0;padding:8px 14px;margin-bottom:1rem;font-size:10.5px;color:#555;display:flex;gap:20px;flex-wrap:wrap;align-items:center">
+    <strong style="color:#7B1FA2">Días de cobertura actual por artículo</strong>
+    <span>Zona verde = objetivo dirección (20–40 días)</span>
+    <span>Color de barra = estado técnico de compras</span>
+    <span style="color:#aaa">|</span>
+    <select id="graf-linea" onchange="renderGrafico()" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;border-radius:5px;outline:none"><option value="">Todas las líneas</option><option>Envasadora</option><option>Inflados</option><option>Libera</option><option>Harina</option><option>Sin asignar</option></select>
+    <select id="graf-orden" onchange="renderGrafico()" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;border-radius:5px;outline:none">
+      <option value="dias">Ordenar por días (mayor a menor)</option>
+      <option value="nombre">Ordenar por nombre</option>
+      <option value="estado">Ordenar por estado compras</option>
+    </select>
+  </div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:10.5px;color:#555;align-items:center">
+    <span style="font-weight:700;color:#777">Estado compras:</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#E24B4A;margin-right:3px;vertical-align:middle"></span>Quiebre</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D8762A;margin-right:3px;vertical-align:middle"></span>Crítico</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D4B800;margin-right:3px;vertical-align:middle"></span>Bajo</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#639922;margin-right:3px;vertical-align:middle"></span>OK</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#378ADD;margin-right:3px;vertical-align:middle"></span>Exceso</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#1234a0;margin-right:3px;vertical-align:middle"></span>Exc. Grave</span>
+    <span style="margin-left:8px;color:#aaa">|</span>
+    <span style="font-weight:700;color:#2E7D32">Zona verde = objetivo dirección (20–40 días)</span>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e5e0;border-radius:10px;padding:14px 16px;overflow-x:auto">
+    <div id="grafico-container"></div>
+  </div>
+  <div style="margin-top:1rem">
+    <div style="font-size:11px;font-weight:700;color:#777;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Artículos con criterios divergentes</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Artículo</th><th class="center">Estado compras</th><th class="center">Estado dirección</th><th class="right">Días hoy</th><th class="right">Stock mín técnico</th><th class="right">LT</th><th>Observación</th></tr></thead>
+      <tbody id="divergentes-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- PANE: BARRAS UNIDADES vs PESOS -->
+<div class="main-pane" id="pane-barras">
+  <div style="background:#fff;border-left:3px solid #0277BD;border-radius:0 8px 8px 0;padding:8px 14px;margin-bottom:1rem;font-size:10.5px;color:#555;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+    <strong style="color:#0277BD">Stock en unidades (barras) vs importe en pesos (línea) — ordenado por importe</strong>
+    <span style="color:#aaa">|</span>
+    <select id="bar-linea" onchange="renderBarras()" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;border-radius:5px;outline:none"><option value="">Todas las líneas</option><option>Envasadora</option><option>Inflados</option><option>Libera</option><option>Harina</option><option>Sin asignar</option></select>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="bar-top20" onchange="renderBarras()" checked><span>Solo top 30 por importe</span></label>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e5e0;border-radius:10px;padding:16px">
+    <div style="display:flex;gap:20px;margin-bottom:10px;font-size:10.5px;align-items:center;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:14px;height:14px;background:#1565C0AA;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Stock (unidades) — eje izquierdo</span>
+      <span><span style="display:inline-block;width:28px;height:3px;background:#E65100;margin-right:4px;vertical-align:middle"></span>Importe en stock ($) — eje derecho</span>
+    </div>
+    <div style="position:relative;height:420px"><canvas id="chart-barras2"></canvas></div>
+  </div>
+  <div id="barras-insight" style="margin-top:1rem;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px"></div>
+  <div style="margin-top:1rem;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="background:#fff;border:1px solid #e5e5e0;border-radius:10px;padding:14px 16px">
+      <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">% del importe total por línea</div>
+      <div style="position:relative;height:220px"><canvas id="chart-linea-donut"></canvas></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e5e0;border-radius:10px;padding:14px 16px">
+      <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Detalle importe por línea</div>
+      <div style="overflow-y:auto;max-height:220px">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="background:#f8f8f4">
+            <th style="padding:5px 8px;text-align:left;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;border-bottom:1px solid #eee">Línea</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;border-bottom:1px solid #eee">Importe total</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;border-bottom:1px solid #eee">% del total</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;border-bottom:1px solid #eee">Artículos</th>
+          </tr></thead>
+          <tbody id="linea-detalle"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px"><div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Top 5 por importe</div><div id="top5-linea" style="font-size:10.5px"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PANE: VARIABILIDAD -->
+<div class="main-pane" id="pane-variab">
+  <div style="background:#fff;border-left:3px solid #AD1457;border-radius:0 8px 8px 0;padding:8px 14px;margin-bottom:1rem;font-size:10.5px;color:#555;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+    <strong style="color:#AD1457">Mapa de riesgo — Variabilidad de consumo vs Importe en stock</strong>
+    <span style="color:#aaa">|</span>
+    <select id="var-linea" onchange="renderVariab()" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;border-radius:5px;outline:none"><option value="">Todas las líneas</option><option>Envasadora</option><option>Inflados</option><option>Libera</option><option>Harina</option><option>Sin asignar</option></select>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:10px" id="mapa-cuadrantes"></div>
+  <div style="margin-top:.75rem;font-size:10px;color:#bbb;text-align:right">Cuadrantes definidos por medianas de CV% e importe · Ordenados por importe descendente</div>
+</div>
+
+<!-- PANE: PARÁMETROS -->
+<div class="main-pane" id="pane-params">
+  <div class="params-grid">
+    <div class="param-card"><div class="param-card-title">📐 Criterios de estado (Vista Compras)</div><table class="param-table">
+      <tr><td>🔴 Quiebre</td><td>Stock &lt; 0</td></tr>
+      <tr><td>🟠 Crítico</td><td>Stock &lt; stock mínimo</td></tr>
+      <tr><td>🟡 Bajo</td><td>Stock &lt; stock de seguridad</td></tr>
+      <tr><td>🟢 OK</td><td>Stock entre seg. y 2× mínimo</td></tr>
+      <tr><td>🔵 Exceso</td><td>Stock entre 2× y 3× mínimo</td></tr>
+      <tr><td>🔵 Exceso Grave</td><td>Stock &gt; 3× mínimo</td></tr>
+    </table></div>
+    <div class="param-card"><div class="param-card-title">🧮 Fórmulas</div><table class="param-table">
+      <tr><td>Stock mínimo</td><td>Consumo diario × Lead time</td></tr>
+      <tr><td>Stock de seguridad</td><td>Mín + 1.65 × σ mensual</td></tr>
+      <tr><td>Consumo diario</td><td>Consumo mensual ÷ 30</td></tr>
+      <tr><td>Factor Z (σ)</td><td>1.65 (confianza 95%)</td></tr>
+      <tr><td>Mult. Exceso / Exc. Grave</td><td>2× / 3× stock mínimo</td></tr>
+    </table></div>
+    <div class="param-card"><div class="param-card-title">🎯 Criterios Vista Dirección</div><table class="param-table">
+      <tr><td>🟡 Reponer</td><td>&lt; 20 días</td></tr>
+      <tr><td>🟢 OK</td><td>20 a 40 días</td></tr>
+      <tr><td>🔴 Exceso</td><td>&gt; 40 días</td></tr>
+    </table></div>
+    <div class="param-card"><div class="param-card-title">📅 Horizonte de proyección</div><table class="param-table">
+      <tr><td>Fecha base</td><td>30/03/2026</td></tr>
+      <tr><td>Fin Marzo</td><td>31/03/2026 (2 días)</td></tr>
+      <tr><td>Fin Abril</td><td>30/04/2026 (31 días)</td></tr>
+      <tr><td>Fin Mayo</td><td>31/05/2026 (62 días)</td></tr>
+    </table></div>
+    <div class="param-card"><div class="param-card-title">📊 Lead time estimado por línea</div><table class="param-table">
+      <tr><td>Envasadora</td><td>38.9 días~</td></tr>
+      <tr><td>Inflados</td><td>45.9 días~</td></tr>
+      <tr><td>Harina / Libera / Sin asignar</td><td>42.0 días~</td></tr>
+    </table></div>
+    <div class="param-card"><div class="param-card-title">🗂️ Fuentes de datos</div><table class="param-table">
+      <tr><td>Stock actual + Importe</td><td>cubo__78_.xls · 30/03/2026</td></tr>
+      <tr><td>Consumo mensual + σ</td><td>cubo__74_.xls · oct-25→mar-26</td></tr>
+      <tr><td>Lead time / MOQ / OC</td><td>TABLERO_insumos_proyeccion.xlsx</td></tr>
+      <tr><td>Artículos activos</td><td>78 (renombrado 1 este mes)</td></tr>
+      <tr><td>MOQ cargados</td><td>52 / 78</td></tr>
+    </table></div>
+    <div class="param-card"><div class="param-card-title">📋 Detalle stock mínimo por artículo</div>
+      <div style="padding:8px 12px"><input id="buscar-params" type="text" placeholder="Buscar artículo..." oninput="renderParams()" style="width:100%;font-size:11.5px;padding:5px 9px;border:1px solid #ddd;border-radius:6px;outline:none;margin-bottom:8px"></div>
+      <div style="max-height:280px;overflow-y:auto"><table class="param-table" id="tabla-params">
+        <thead style="position:sticky;top:0;background:#f8f8f4"><tr><td style="font-weight:700;color:#555">Artículo</td><td style="font-weight:700;color:#555;text-align:right">Stk mín</td><td style="font-weight:700;color:#555;text-align:right">Stk seg</td><td style="font-weight:700;color:#555;text-align:right">σ</td><td style="font-weight:700;color:#555;text-align:right">CV%</td></tr></thead>
+        <tbody id="params-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const DATA = [{"articulo": "BASES CARTON PARA ARROZ", "linea": "Envasadora", "stock": 4303.0, "consumo_mens": 2541.6, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "15.0", "lead_time_usado": 15.0, "lt_estimado": false, "moq": 5000, "stock_min": 1270.8, "stock_seg": 1270.8, "desv": 0, "cv": 0, "dias_hoy": 50.8, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 4133.56, "dias_fin_mar": 48.8, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 1676.68, "dias_fin_abr": 19.8, "estado_fin_abr": "OK", "stock_fin_may": -949.64, "dias_fin_may": -11.2, "estado_fin_may": "QUIEBRE", "importe": 3345582.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "REPONER", "estado_dir_may": "QUIEBRE", "num": 1}, {"articulo": "BOLSA CRISTAL 52x70 x 100 mic CM - EXPO", "linea": "Envasadora", "stock": 2550.26, "consumo_mens": 806.2, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "15.0", "lead_time_usado": 15.0, "lt_estimado": false, "moq": 1000, "stock_min": 403.1, "stock_seg": 1965.0, "desv": 946.63, "cv": 117.4, "dias_hoy": 94.9, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 2496.51, "dias_fin_mar": 92.9, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 1717.18, "dias_fin_abr": 63.9, "estado_fin_abr": "BAJO", "stock_fin_may": 884.1, "dias_fin_may": 32.9, "estado_fin_may": "BAJO", "importe": 316748.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 2}, {"articulo": "CAJA AROMATICO DH X 500GR", "linea": "Envasadora", "stock": 8799.2, "consumo_mens": 1037.0, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 25000, "stock_min": 2074.0, "stock_seg": 3952.3, "desv": 1138.34, "cv": 109.8, "dias_hoy": 254.6, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 8730.07, "dias_fin_mar": 252.6, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 7727.63, "dias_fin_abr": 223.6, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 6656.07, "dias_fin_may": 192.6, "estado_fin_may": "EXCESO GRAVE", "importe": 3686029.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 3}, {"articulo": "CAJA CARNAROLI DH X 500GR", "linea": "Envasadora", "stock": 43599.8, "consumo_mens": 9423.1, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 25000, "stock_min": 18846.2, "stock_seg": 22265.1, "desv": 2072.07, "cv": 22.0, "dias_hoy": 138.8, "estado_hoy": "EXCESO", "stock_fin_mar": 42971.59, "dias_fin_mar": 136.8, "estado_fin_mar": "EXCESO", "stock_fin_abr": 33862.6, "dias_fin_abr": 107.8, "estado_fin_abr": "OK", "stock_fin_may": 24125.39, "dias_fin_may": 76.8, "estado_fin_may": "OK", "importe": 6646354.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 4}, {"articulo": "CAJA KOSHIHIKARI DH X 500GR", "linea": "Envasadora", "stock": 30506.5, "consumo_mens": 13430.1, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 25000, "stock_min": 26860.3, "stock_seg": 35563.3, "desv": 5274.53, "cv": 39.3, "dias_hoy": 68.1, "estado_hoy": "BAJO", "stock_fin_mar": 29611.16, "dias_fin_mar": 66.1, "estado_fin_mar": "BAJO", "stock_fin_abr": 16628.68, "dias_fin_abr": 37.1, "estado_fin_abr": "CRÍTICO", "stock_fin_may": 2750.86, "dias_fin_may": 6.1, "estado_fin_may": "CRÍTICO", "importe": 4650411.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "REPONER", "num": 5}, {"articulo": "CAJA PARBOIL DH X 1KG", "linea": "Envasadora", "stock": 14057.0, "consumo_mens": 1871.7, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 25000, "stock_min": 3743.4, "stock_seg": 9225.8, "desv": 3322.67, "cv": 177.5, "dias_hoy": 225.3, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 13932.22, "dias_fin_mar": 223.3, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 12122.91, "dias_fin_abr": 194.3, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 10188.82, "dias_fin_may": 163.3, "estado_fin_may": "EXCESO", "importe": 2426519.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 6}, {"articulo": "CAJA PARBOIL DH X 500GR", "linea": "Envasadora", "stock": 11309.7, "consumo_mens": 646.6, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 15000, "stock_min": 1293.1, "stock_seg": 2948.5, "desv": 1003.26, "cv": 155.2, "dias_hoy": 524.8, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 11266.6, "dias_fin_mar": 522.8, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 10641.6, "dias_fin_abr": 493.8, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 9973.5, "dias_fin_may": 462.8, "estado_fin_may": "EXCESO GRAVE", "importe": 3384428.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 7}, {"articulo": "CAJA YAMANI DH X 500GR", "linea": "Envasadora", "stock": 61680.35, "consumo_mens": 18369.7, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 25000, "stock_min": 36739.5, "stock_seg": 53423.0, "desv": 10111.21, "cv": 55.0, "dias_hoy": 100.7, "estado_hoy": "OK", "stock_fin_mar": 60455.7, "dias_fin_mar": 98.7, "estado_fin_mar": "OK", "stock_fin_abr": 42698.3, "dias_fin_abr": 69.7, "estado_fin_abr": "BAJO", "stock_fin_may": 23716.25, "dias_fin_may": 38.7, "estado_fin_may": "CRÍTICO", "importe": 9445192.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 8}, {"articulo": "EMBOLSADORA CRISTAL 1/2KG (31718)", "linea": "Envasadora", "stock": 751.4, "consumo_mens": 1121.1, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 25000, "stock_min": 2242.1, "stock_seg": 2366.1, "desv": 75.18, "cv": 6.7, "dias_hoy": 20.1, "estado_hoy": "CRÍTICO", "stock_fin_mar": 676.66, "dias_fin_mar": 18.1, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": -407.03, "dias_fin_abr": -10.9, "estado_fin_abr": "QUIEBRE", "stock_fin_may": -1565.46, "dias_fin_may": -41.9, "estado_fin_may": "QUIEBRE", "importe": 2206440.0, "estado_dir_hoy": "OK", "estado_dir_mar": "REPONER", "estado_dir_abr": "QUIEBRE", "estado_dir_may": "QUIEBRE", "num": 9}, {"articulo": "EMBOLSADORA CRISTAL 1KG (21317)", "linea": "Envasadora", "stock": 2385.05, "consumo_mens": 903.1, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 1000, "stock_min": 903.1, "stock_seg": 1576.9, "desv": 408.35, "cv": 45.2, "dias_hoy": 79.2, "estado_hoy": "EXCESO", "stock_fin_mar": 2324.84, "dias_fin_mar": 77.2, "estado_fin_mar": "EXCESO", "stock_fin_abr": 1451.8, "dias_fin_abr": 48.2, "estado_fin_abr": "BAJO", "stock_fin_may": 518.55, "dias_fin_may": 17.2, "estado_fin_may": "CRÍTICO", "importe": 7003585.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 10}, {"articulo": "EMBOLSADORA CRISTAL NON GMO LF (57964)", "linea": "Envasadora", "stock": 291.98, "consumo_mens": 3088.9, "oc_mar": 3500, "fecha_mar": "05/03", "oc_abr": 3500, "fecha_abr": "05/04", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 1000, "stock_min": 3088.9, "stock_seg": 3645.8, "desv": 337.52, "cv": 10.9, "dias_hoy": 2.8, "estado_hoy": "CRÍTICO", "stock_fin_mar": 3586.05, "dias_fin_mar": 34.8, "estado_fin_mar": "BAJO", "stock_fin_abr": 4100.09, "dias_fin_abr": 39.8, "estado_fin_abr": "OK", "stock_fin_may": 908.2, "dias_fin_may": 8.8, "estado_fin_may": "CRÍTICO", "importe": 988649.0, "estado_dir_hoy": "REPONER", "estado_dir_mar": "OK", "estado_dir_abr": "OK", "estado_dir_may": "REPONER", "num": 11}, {"articulo": "EMBOLSADORA CRISTAL NON GMO PARBOIL (57965)", "linea": "Envasadora", "stock": 1168.56, "consumo_mens": 1975.8, "oc_mar": 2000, "fecha_mar": "05/03", "oc_abr": 2000, "fecha_abr": "05/04", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 2000, "stock_min": 1975.8, "stock_seg": 2253.0, "desv": 168.0, "cv": 8.5, "dias_hoy": 17.7, "estado_hoy": "CRÍTICO", "stock_fin_mar": 3036.84, "dias_fin_mar": 46.1, "estado_fin_mar": "OK", "stock_fin_abr": 3126.86, "dias_fin_abr": 47.5, "estado_fin_abr": "OK", "stock_fin_may": 1085.16, "dias_fin_may": 16.5, "estado_fin_may": "CRÍTICO", "importe": 3923979.0, "estado_dir_hoy": "REPONER", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 12}, {"articulo": "ESQUINEROS", "linea": "Envasadora", "stock": 13188.0, "consumo_mens": 941.6, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 2000, "stock_min": 941.6, "stock_seg": 941.6, "desv": 0, "cv": 0, "dias_hoy": 420.2, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 13125.23, "dias_fin_mar": 418.2, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 12215.01, "dias_fin_abr": 389.2, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 11242.03, "dias_fin_may": 358.2, "estado_fin_may": "EXCESO GRAVE", "importe": 4938906.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 13}, {"articulo": "LAM TC 42/70(TERMOCONTRAIBLE ENVASADORA) (33594)", "linea": "Envasadora", "stock": 323.85, "consumo_mens": 126.9, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "20.0", "lead_time_usado": 20.0, "lt_estimado": false, "moq": 12000, "stock_min": 84.6, "stock_seg": 153.9, "desv": 41.99, "cv": 33.1, "dias_hoy": 76.5, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 315.39, "dias_fin_mar": 74.5, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 192.68, "dias_fin_abr": 45.5, "estado_fin_abr": "EXCESO", "stock_fin_may": 61.51, "dias_fin_may": 14.5, "estado_fin_may": "CRÍTICO", "importe": 1524260.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 14}, {"articulo": "LAMINADO DOBLE CAROLINA NON GMO X 1 KG (67379)", "linea": "Envasadora", "stock": 841.0, "consumo_mens": 552.0, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 500, "stock_min": 552.0, "stock_seg": 787.6, "desv": 142.77, "cv": 25.9, "dias_hoy": 45.7, "estado_hoy": "OK", "stock_fin_mar": 804.2, "dias_fin_mar": 43.7, "estado_fin_mar": "OK", "stock_fin_abr": 270.59, "dias_fin_abr": 14.7, "estado_fin_abr": "CRÍTICO", "stock_fin_may": -299.83, "dias_fin_may": -16.3, "estado_fin_may": "QUIEBRE", "importe": 4986403.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "REPONER", "estado_dir_may": "QUIEBRE", "num": 15}, {"articulo": "LAMINADO DOBLE CAROLINA NON GMO X 1/2 KG", "linea": "Envasadora", "stock": 1076.56, "consumo_mens": 124.9, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": 1000, "stock_min": 187.3, "stock_seg": 240.2, "desv": 32.06, "cv": 25.7, "dias_hoy": 258.7, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 1068.24, "dias_fin_mar": 256.7, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 947.54, "dias_fin_abr": 227.7, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 818.53, "dias_fin_may": 196.7, "estado_fin_may": "EXCESO GRAVE", "importe": 13129031.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 16}, {"articulo": "LAMINADO INTEGRAL NON GMO X 1 KG (66361)", "linea": "Envasadora", "stock": 5.49, "consumo_mens": 465.1, "oc_mar": 1000, "fecha_mar": "05/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": 1000, "stock_min": 697.6, "stock_seg": 822.0, "desv": 75.38, "cv": 16.2, "dias_hoy": 0.4, "estado_hoy": "CRÍTICO", "stock_fin_mar": 974.48, "dias_fin_mar": 62.9, "estado_fin_mar": "OK", "stock_fin_abr": 524.91, "dias_fin_abr": 33.9, "estado_fin_abr": "CRÍTICO", "stock_fin_may": 44.32, "dias_fin_may": 2.9, "estado_fin_may": "CRÍTICO", "importe": 34223.0, "estado_dir_hoy": "REPONER", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "REPONER", "num": 17}, {"articulo": "LAMINADO LARGO FINO NON GMO DOS HERMANOS X KG (58055)", "linea": "Envasadora", "stock": 7489.18, "consumo_mens": 7037.8, "oc_mar": 8000, "fecha_mar": "05/03", "oc_abr": 8000, "fecha_abr": "05/04", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": 1000, "stock_min": 10556.7, "stock_seg": 12280.7, "desv": 1044.83, "cv": 14.8, "dias_hoy": 31.9, "estado_hoy": "CRÍTICO", "stock_fin_mar": 15019.99, "dias_fin_mar": 64.0, "estado_fin_mar": "OK", "stock_fin_abr": 16216.76, "dias_fin_abr": 69.1, "estado_fin_abr": "OK", "stock_fin_may": 8944.35, "dias_fin_may": 38.1, "estado_fin_may": "CRÍTICO", "importe": 41773523.0, "estado_dir_hoy": "OK", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 18}, {"articulo": "LAMINADO LARGO FINO NON GMO x 1/2 kg.", "linea": "Envasadora", "stock": 3594.08, "consumo_mens": 1445.0, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": 5000, "stock_min": 2167.6, "stock_seg": 2575.5, "desv": 247.23, "cv": 17.1, "dias_hoy": 74.6, "estado_hoy": "OK", "stock_fin_mar": 3497.74, "dias_fin_mar": 72.6, "estado_fin_mar": "OK", "stock_fin_abr": 2100.88, "dias_fin_abr": 43.6, "estado_fin_abr": "CRÍTICO", "stock_fin_may": 607.68, "dias_fin_may": 12.6, "estado_fin_may": "CRÍTICO", "importe": 29237645.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 19}, {"articulo": "LAMINADO LARGO FINO PRODIGIO X 1KG", "linea": "Envasadora", "stock": 1553.21, "consumo_mens": 425.1, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 2000, "stock_min": 850.3, "stock_seg": 1102.8, "desv": 153.01, "cv": 36.0, "dias_hoy": 109.6, "estado_hoy": "OK", "stock_fin_mar": 1524.87, "dias_fin_mar": 107.6, "estado_fin_mar": "OK", "stock_fin_abr": 1113.9, "dias_fin_abr": 78.6, "estado_fin_abr": "OK", "stock_fin_may": 674.58, "dias_fin_may": 47.6, "estado_fin_may": "CRÍTICO", "importe": 10474875.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 20}, {"articulo": "LAMINADO LF ORGANICO COMPOSTABLE x 1/2 kg", "linea": "Envasadora", "stock": 253.67, "consumo_mens": 8.4, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 500, "stock_min": 8.4, "stock_seg": 42.5, "desv": 20.65, "cv": 244.9, "dias_hoy": 902.5, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 253.11, "dias_fin_mar": 900.5, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 244.96, "dias_fin_abr": 871.5, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 236.24, "dias_fin_may": 840.5, "estado_fin_may": "EXCESO GRAVE", "importe": 3564007.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 21}, {"articulo": "LAMINADO NO SE PASA - PARBOIL NON GMO DOS HERMANOS X KG (66370)", "linea": "Envasadora", "stock": 6212.27, "consumo_mens": 4290.0, "oc_mar": 5000, "fecha_mar": "05/03", "oc_abr": 5000, "fecha_abr": "05/04", "lead_time": "20.0", "lead_time_usado": 20.0, "lt_estimado": false, "moq": 500, "stock_min": 2860.0, "stock_seg": 3490.3, "desv": 382.0, "cv": 8.9, "dias_hoy": 43.4, "estado_hoy": "EXCESO", "stock_fin_mar": 10926.27, "dias_fin_mar": 76.4, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 11779.27, "dias_fin_abr": 82.4, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 7346.27, "dias_fin_may": 51.4, "estado_fin_may": "EXCESO", "importe": 35960346.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 22}, {"articulo": "LAMINADO PARBOIL NON GMO x 1/2 kg.", "linea": "Envasadora", "stock": 4923.31, "consumo_mens": 826.3, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 1239.5, "stock_seg": 1667.6, "desv": 259.44, "cv": 31.4, "dias_hoy": 178.7, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 4868.22, "dias_fin_mar": 176.7, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 4069.46, "dias_fin_abr": 147.7, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 3215.6, "dias_fin_may": 116.7, "estado_fin_may": "EXCESO", "importe": 41226847.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 23}, {"articulo": "LAMINADO PARBOIL PRODIGIO X 1KG", "linea": "Envasadora", "stock": 2332.39, "consumo_mens": 113.4, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 2000, "stock_min": 226.8, "stock_seg": 576.0, "desv": 211.66, "cv": 186.7, "dias_hoy": 617.1, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 2324.83, "dias_fin_mar": 615.1, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 2215.22, "dias_fin_abr": 586.1, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 2098.04, "dias_fin_may": 555.1, "estado_fin_may": "EXCESO GRAVE", "importe": 15729607.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 24}, {"articulo": "POLIETILENO CARNAROLI DH x 5 kg.", "linea": "Envasadora", "stock": 175.4, "consumo_mens": 17.5, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 500, "stock_min": 17.5, "stock_seg": 45.0, "desv": 16.68, "cv": 95.1, "dias_hoy": 300.0, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 174.23, "dias_fin_mar": 298.0, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 157.28, "dias_fin_abr": 269.0, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 139.15, "dias_fin_may": 238.0, "estado_fin_may": "EXCESO GRAVE", "importe": 1195219.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 25}, {"articulo": "POLIETILENO KOSHIHIKARI DH x 5 kg (58710)", "linea": "Envasadora", "stock": 63.6, "consumo_mens": 16.5, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 500, "stock_min": 16.5, "stock_seg": 33.2, "desv": 10.12, "cv": 61.2, "dias_hoy": 115.4, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 62.5, "dias_fin_mar": 113.4, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 46.51, "dias_fin_abr": 84.4, "estado_fin_abr": "EXCESO", "stock_fin_may": 29.42, "dias_fin_may": 53.4, "estado_fin_may": "BAJO", "importe": 448577.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 26}, {"articulo": "POLIETILENO LARGO FINO DH x 5 kg (32083)", "linea": "Envasadora", "stock": 9.9, "consumo_mens": 174.1, "oc_mar": 0, "fecha_mar": "", "oc_abr": 1000, "fecha_abr": "05/04", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 500, "stock_min": 174.1, "stock_seg": 296.8, "desv": 74.38, "cv": 42.7, "dias_hoy": 1.7, "estado_hoy": "CRÍTICO", "stock_fin_mar": -1.71, "dias_fin_mar": -0.3, "estado_fin_mar": "QUIEBRE", "stock_fin_abr": 829.97, "dias_fin_abr": 143.0, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 650.04, "dias_fin_may": 112.0, "estado_fin_may": "EXCESO GRAVE", "importe": 43658.0, "estado_dir_hoy": "REPONER", "estado_dir_mar": "QUIEBRE", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 27}, {"articulo": "POLIETILENO LF 4/0 FEDERAL x 1 KG (56420)", "linea": "Envasadora", "stock": 946.84, "consumo_mens": 225.6, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 500, "stock_min": 225.6, "stock_seg": 723.0, "desv": 301.48, "cv": 133.6, "dias_hoy": 125.9, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 931.8, "dias_fin_mar": 123.9, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 713.73, "dias_fin_abr": 94.9, "estado_fin_abr": "BAJO", "stock_fin_may": 480.62, "dias_fin_may": 63.9, "estado_fin_may": "BAJO", "importe": 4789091.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 28}, {"articulo": "POLIETILENO PARBOIL DH x 5 kg (34138)", "linea": "Envasadora", "stock": 1277.12, "consumo_mens": 823.3, "oc_mar": 0, "fecha_mar": "", "oc_abr": 1000, "fecha_abr": "05/04", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 500, "stock_min": 823.3, "stock_seg": 942.6, "desv": 72.29, "cv": 8.8, "dias_hoy": 46.5, "estado_hoy": "OK", "stock_fin_mar": 1222.23, "dias_fin_mar": 44.5, "estado_fin_mar": "OK", "stock_fin_abr": 1426.38, "dias_fin_abr": 52.0, "estado_fin_abr": "OK", "stock_fin_may": 575.64, "dias_fin_may": 21.0, "estado_fin_may": "CRÍTICO", "importe": 4988303.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 29}, {"articulo": "POLIETILENO PARBOIL EL FEDERAL 1 kg (56424)", "linea": "Envasadora", "stock": 467.44, "consumo_mens": 1.5, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "20.0", "lead_time_usado": 20.0, "lt_estimado": false, "moq": 500, "stock_min": 1.0, "stock_seg": 6.9, "desv": 3.58, "cv": 244.9, "dias_hoy": 9607.1, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 467.34, "dias_fin_mar": 9605.1, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 465.93, "dias_fin_abr": 9576.1, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 464.42, "dias_fin_may": 9545.1, "estado_fin_may": "EXCESO GRAVE", "importe": 3185226.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 30}, {"articulo": "TECHO CARTON PARA ARROZ (80 x 100)", "linea": "Envasadora", "stock": 1790.0, "consumo_mens": 2047.6, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 40.1, "lt_estimado": true, "moq": "", "stock_min": 2740.2, "stock_seg": 2740.2, "desv": 0, "cv": 0, "dias_hoy": 26.2, "estado_hoy": "CRÍTICO", "stock_fin_mar": 1653.49, "dias_fin_mar": 24.2, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": -325.85, "dias_fin_abr": -4.8, "estado_fin_abr": "QUIEBRE", "stock_fin_may": -2441.71, "dias_fin_may": -35.8, "estado_fin_may": "QUIEBRE", "importe": 994810.0, "estado_dir_hoy": "OK", "estado_dir_mar": "OK", "estado_dir_abr": "QUIEBRE", "estado_dir_may": "QUIEBRE", "num": 31}, {"articulo": "ACEITE DE GIRASOL (SNACKS)", "linea": "Inflados", "stock": 20907.55, "consumo_mens": 10534.3, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 17000, "stock_min": 10534.3, "stock_seg": 11967.2, "desv": 868.41, "cv": 8.2, "dias_hoy": 59.5, "estado_hoy": "OK", "stock_fin_mar": 20205.26, "dias_fin_mar": 57.5, "estado_fin_mar": "OK", "stock_fin_abr": 10022.06, "dias_fin_abr": 28.5, "estado_fin_abr": "CRÍTICO", "stock_fin_may": -863.42, "dias_fin_may": -2.5, "estado_fin_may": "QUIEBRE", "importe": 49643936.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "QUIEBRE", "num": 32}, {"articulo": "AZUCAR BLANCA", "linea": "Inflados", "stock": 997.44, "consumo_mens": 372.2, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "15.0", "lead_time_usado": 15.0, "lt_estimado": false, "moq": 500, "stock_min": 186.1, "stock_seg": 410.2, "desv": 135.82, "cv": 36.5, "dias_hoy": 80.4, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 972.63, "dias_fin_mar": 78.4, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 612.84, "dias_fin_abr": 49.4, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 228.24, "dias_fin_may": 18.4, "estado_fin_may": "BAJO", "importe": 1064646.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 33}, {"articulo": "BARBACUE FLAVOR - SABORIZANTE", "linea": "Inflados", "stock": 2354.91, "consumo_mens": 499.2, "oc_mar": 0, "fecha_mar": "", "oc_abr": 1500, "fecha_abr": "03/04", "lead_time": "90.0", "lead_time_usado": 90.0, "lt_estimado": false, "moq": 1500, "stock_min": 1497.5, "stock_seg": 1832.7, "desv": 203.12, "cv": 40.7, "dias_hoy": 141.5, "estado_hoy": "OK", "stock_fin_mar": 2321.63, "dias_fin_mar": 139.5, "estado_fin_mar": "OK", "stock_fin_abr": 3339.09, "dias_fin_abr": 200.7, "estado_fin_abr": "EXCESO", "stock_fin_may": 2823.27, "dias_fin_may": 169.7, "estado_fin_may": "OK", "importe": 71301328.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 34}, {"articulo": "CAJA CON IMPRESION GENERICA", "linea": "Inflados", "stock": 32769.0, "consumo_mens": 35802.7, "oc_mar": 44000, "fecha_mar": "09/03, 24/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 22000, "stock_min": 35802.7, "stock_seg": 39161.9, "desv": 2035.89, "cv": 5.7, "dias_hoy": 27.5, "estado_hoy": "CRÍTICO", "stock_fin_mar": 74382.16, "dias_fin_mar": 62.3, "estado_fin_mar": "EXCESO", "stock_fin_abr": 39772.91, "dias_fin_abr": 33.3, "estado_fin_abr": "OK", "stock_fin_may": 2776.82, "dias_fin_may": 2.3, "estado_fin_may": "CRÍTICO", "importe": 15688159.0, "estado_dir_hoy": "OK", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "REPONER", "num": 35}, {"articulo": "CAJA CON IMPRESION GENERICA EXCESO EDULCORANTE", "linea": "Inflados", "stock": 11142.0, "consumo_mens": 16305.3, "oc_mar": 44000, "fecha_mar": "04/03, 24/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 22000, "stock_min": 16305.3, "stock_seg": 20223.8, "desv": 2374.84, "cv": 14.6, "dias_hoy": 20.5, "estado_hoy": "CRÍTICO", "stock_fin_mar": 54054.98, "dias_fin_mar": 99.5, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 38293.16, "dias_fin_abr": 70.5, "estado_fin_abr": "EXCESO", "stock_fin_may": 21444.31, "dias_fin_may": 39.5, "estado_fin_may": "OK", "importe": 5334232.0, "estado_dir_hoy": "OK", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 36}, {"articulo": "CAJA CON IMPRESION GENERICA EXCESO EN SODIO", "linea": "Inflados", "stock": 74646.0, "consumo_mens": 62217.8, "oc_mar": 132000, "fecha_mar": "02/03, 04/03, 09/03, 17/03, 24/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 22000, "stock_min": 62217.8, "stock_seg": 74717.9, "desv": 7575.8, "cv": 12.2, "dias_hoy": 36.0, "estado_hoy": "BAJO", "stock_fin_mar": 202498.14, "dias_fin_mar": 97.6, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 142354.24, "dias_fin_abr": 68.6, "estado_fin_abr": "EXCESO", "stock_fin_may": 78062.48, "dias_fin_may": 37.6, "estado_fin_may": "OK", "importe": 35736772.0, "estado_dir_hoy": "OK", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 37}, {"articulo": "CAJA SIN IMPRESION GENERICA", "linea": "Inflados", "stock": 6050.0, "consumo_mens": 0.0, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 22000, "stock_min": 0, "stock_seg": 0, "desv": 0, "cv": 0, "dias_hoy": "", "estado_hoy": "S/CONS", "stock_fin_mar": 6050.0, "dias_fin_mar": "", "estado_fin_mar": "S/CONS", "stock_fin_abr": 6050.0, "dias_fin_abr": "", "estado_fin_abr": "S/CONS", "stock_fin_may": 6050.0, "dias_fin_may": "", "estado_fin_may": "S/CONS", "importe": 679736.0, "estado_dir_hoy": "S/CONS", "estado_dir_mar": "S/CONS", "estado_dir_abr": "S/CONS", "estado_dir_may": "S/CONS", "num": 38}, {"articulo": "CAJA SNACK MASTER DH CON IMPRESION EXCESO SODIO", "linea": "Inflados", "stock": 5063.0, "consumo_mens": 11499.5, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 9000, "stock_min": 11499.5, "stock_seg": 12573.8, "desv": 651.08, "cv": 5.7, "dias_hoy": 13.2, "estado_hoy": "CRÍTICO", "stock_fin_mar": 4296.37, "dias_fin_mar": 11.2, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": -6819.82, "dias_fin_abr": -17.8, "estado_fin_abr": "QUIEBRE", "stock_fin_may": -18702.63, "dias_fin_may": -48.8, "estado_fin_may": "QUIEBRE", "importe": 5584742.0, "estado_dir_hoy": "REPONER", "estado_dir_mar": "REPONER", "estado_dir_abr": "QUIEBRE", "estado_dir_may": "QUIEBRE", "num": 39}, {"articulo": "CARAMELIC ONION FLAVOR - SABORIZANTE", "linea": "Inflados", "stock": 2184.69, "consumo_mens": 288.6, "oc_mar": 1000, "fecha_mar": "04/03", "oc_abr": 1000, "fecha_abr": "04/04", "lead_time": "90.0", "lead_time_usado": 90.0, "lt_estimado": false, "moq": 1000, "stock_min": 865.8, "stock_seg": 1261.1, "desv": 239.57, "cv": 83.0, "dias_hoy": 227.1, "estado_hoy": "EXCESO", "stock_fin_mar": 3165.45, "dias_fin_mar": 329.1, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 3886.49, "dias_fin_abr": 404.0, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 3588.28, "dias_fin_may": 373.0, "estado_fin_may": "EXCESO GRAVE", "importe": 36189310.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 40}, {"articulo": "CARBONATO DE CALCIO", "linea": "Inflados", "stock": 1013.87, "consumo_mens": 720.1, "oc_mar": 1000, "fecha_mar": "11/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "20.0", "lead_time_usado": 20.0, "lt_estimado": false, "moq": 1000, "stock_min": 480.1, "stock_seg": 646.4, "desv": 100.79, "cv": 14.0, "dias_hoy": 42.2, "estado_hoy": "EXCESO", "stock_fin_mar": 1965.86, "dias_fin_mar": 81.9, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 1269.79, "dias_fin_abr": 52.9, "estado_fin_abr": "EXCESO", "stock_fin_may": 525.71, "dias_fin_may": 21.9, "estado_fin_may": "BAJO", "importe": 2279179.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 41}, {"articulo": "CEBOLLA MORADA EN POLVO", "linea": "Inflados", "stock": 470.9, "consumo_mens": 460.7, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "20.0", "lead_time_usado": 20.0, "lt_estimado": false, "moq": 500, "stock_min": 307.1, "stock_seg": 394.5, "desv": 52.94, "cv": 11.5, "dias_hoy": 30.7, "estado_hoy": "OK", "stock_fin_mar": 440.19, "dias_fin_mar": 28.7, "estado_fin_mar": "OK", "stock_fin_abr": -5.18, "dias_fin_abr": -0.3, "estado_fin_abr": "QUIEBRE", "stock_fin_may": -481.25, "dias_fin_may": -31.3, "estado_fin_may": "QUIEBRE", "importe": 11909005.0, "estado_dir_hoy": "OK", "estado_dir_mar": "OK", "estado_dir_abr": "QUIEBRE", "estado_dir_may": "QUIEBRE", "num": 42}, {"articulo": "CHEESE FLAVOR - SABORIZANTE", "linea": "Inflados", "stock": 594.19, "consumo_mens": 657.9, "oc_mar": 1000, "fecha_mar": "18/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 1007.4, "stock_seg": 1208.1, "desv": 121.67, "cv": 18.5, "dias_hoy": 27.1, "estado_hoy": "CRÍTICO", "stock_fin_mar": 1550.33, "dias_fin_mar": 70.7, "estado_fin_mar": "OK", "stock_fin_abr": 914.36, "dias_fin_abr": 41.7, "estado_fin_abr": "CRÍTICO", "stock_fin_may": 234.53, "dias_fin_may": 10.7, "estado_fin_may": "CRÍTICO", "importe": 11128399.0, "estado_dir_hoy": "OK", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 43}, {"articulo": "CLORURO DE SODIO", "linea": "Inflados", "stock": 798.73, "consumo_mens": 465.8, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "20.0", "lead_time_usado": 20.0, "lt_estimado": false, "moq": 100, "stock_min": 310.5, "stock_seg": 462.0, "desv": 91.8, "cv": 19.7, "dias_hoy": 51.4, "estado_hoy": "EXCESO", "stock_fin_mar": 767.68, "dias_fin_mar": 49.4, "estado_fin_mar": "EXCESO", "stock_fin_abr": 317.42, "dias_fin_abr": 20.4, "estado_fin_abr": "BAJO", "stock_fin_may": -163.88, "dias_fin_may": -10.6, "estado_fin_may": "QUIEBRE", "importe": 610706.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "QUIEBRE", "num": 44}, {"articulo": "COLORANTE ACHIOTTE AM 200 WSP (NARANJA)", "linea": "Inflados", "stock": 540.01, "consumo_mens": 98.9, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "20.0", "lead_time_usado": 20.0, "lt_estimado": false, "moq": 100, "stock_min": 65.9, "stock_seg": 192.7, "desv": 76.83, "cv": 77.7, "dias_hoy": 163.8, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 533.42, "dias_fin_mar": 161.8, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 437.83, "dias_fin_abr": 132.8, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 335.65, "dias_fin_may": 101.8, "estado_fin_may": "EXCESO GRAVE", "importe": 11813278.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 45}, {"articulo": "COLORANTE AMARILLO CNA 839 (AMARILLO)", "linea": "Inflados", "stock": 450.1, "consumo_mens": 167.5, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 256.5, "stock_seg": 310.5, "desv": 32.71, "cv": 19.5, "dias_hoy": 80.6, "estado_hoy": "OK", "stock_fin_mar": 438.93, "dias_fin_mar": 78.6, "estado_fin_mar": "OK", "stock_fin_abr": 277.01, "dias_fin_abr": 49.6, "estado_fin_abr": "BAJO", "stock_fin_may": 103.93, "dias_fin_may": 18.6, "estado_fin_may": "CRÍTICO", "importe": 9277113.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 46}, {"articulo": "COLORANTE CARAMELO", "linea": "Inflados", "stock": 71.17, "consumo_mens": 57.7, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 88.3, "stock_seg": 108.4, "desv": 12.18, "cv": 21.1, "dias_hoy": 37.0, "estado_hoy": "CRÍTICO", "stock_fin_mar": 67.32, "dias_fin_mar": 35.0, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": 11.56, "dias_fin_abr": 6.0, "estado_fin_abr": "CRÍTICO", "stock_fin_may": -48.05, "dias_fin_may": -25.0, "estado_fin_may": "QUIEBRE", "importe": 1072949.0, "estado_dir_hoy": "OK", "estado_dir_mar": "OK", "estado_dir_abr": "REPONER", "estado_dir_may": "QUIEBRE", "num": 47}, {"articulo": "LAMINADO ASADO X 80 GR DH (65534)", "linea": "Inflados", "stock": 1413.59, "consumo_mens": 500.0, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 750.0, "stock_seg": 1058.4, "desv": 186.88, "cv": 37.4, "dias_hoy": 84.8, "estado_hoy": "OK", "stock_fin_mar": 1380.26, "dias_fin_mar": 82.8, "estado_fin_mar": "OK", "stock_fin_abr": 896.96, "dias_fin_abr": 53.8, "estado_fin_abr": "BAJO", "stock_fin_may": 380.32, "dias_fin_may": 22.8, "estado_fin_may": "CRÍTICO", "importe": 10109212.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 48}, {"articulo": "LAMINADO CEBOLLA CARAMELIZADA - SP", "linea": "Inflados", "stock": 653.22, "consumo_mens": 242.3, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "20.0", "lead_time_usado": 20.0, "lt_estimado": false, "moq": 500, "stock_min": 161.5, "stock_seg": 494.8, "desv": 201.97, "cv": 83.4, "dias_hoy": 80.9, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 637.07, "dias_fin_mar": 78.9, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 402.85, "dias_fin_abr": 49.9, "estado_fin_abr": "BAJO", "stock_fin_may": 152.49, "dias_fin_may": 18.9, "estado_fin_may": "CRÍTICO", "importe": 5598405.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 49}, {"articulo": "LAMINADO CREMA Y CEBOLLA X 80 GR DH (65527)", "linea": "Inflados", "stock": 939.69, "consumo_mens": 1458.6, "oc_mar": 0, "fecha_mar": "", "oc_abr": 2000, "fecha_abr": "05/04", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 2188.0, "stock_seg": 2458.9, "desv": 164.18, "cv": 11.3, "dias_hoy": 19.3, "estado_hoy": "CRÍTICO", "stock_fin_mar": 842.45, "dias_fin_mar": 17.3, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": 1432.43, "dias_fin_abr": 29.5, "estado_fin_abr": "CRÍTICO", "stock_fin_may": -74.83, "dias_fin_may": -1.5, "estado_fin_may": "QUIEBRE", "importe": 6348490.0, "estado_dir_hoy": "REPONER", "estado_dir_mar": "REPONER", "estado_dir_abr": "OK", "estado_dir_may": "QUIEBRE", "num": 50}, {"articulo": "LAMINADO JAMON X 80 GR DH (65537)", "linea": "Inflados", "stock": 727.31, "consumo_mens": 884.2, "oc_mar": 0, "fecha_mar": "", "oc_abr": 1000, "fecha_abr": "05/04", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 1326.3, "stock_seg": 1860.4, "desv": 323.68, "cv": 36.6, "dias_hoy": 24.7, "estado_hoy": "CRÍTICO", "stock_fin_mar": 668.36, "dias_fin_mar": 22.7, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": 813.61, "dias_fin_abr": 27.6, "estado_fin_abr": "CRÍTICO", "stock_fin_may": -100.09, "dias_fin_may": -3.4, "estado_fin_may": "QUIEBRE", "importe": 5078725.0, "estado_dir_hoy": "OK", "estado_dir_mar": "OK", "estado_dir_abr": "OK", "estado_dir_may": "QUIEBRE", "num": 51}, {"articulo": "LAMINADO PICANTE X 60 GR DH", "linea": "Inflados", "stock": 1023.41, "consumo_mens": 97.1, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "20.0", "lead_time_usado": 20.0, "lt_estimado": false, "moq": 500, "stock_min": 64.7, "stock_seg": 310.8, "desv": 149.16, "cv": 153.6, "dias_hoy": 316.2, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 1016.94, "dias_fin_mar": 314.2, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 923.07, "dias_fin_abr": 285.2, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 822.74, "dias_fin_may": 254.2, "estado_fin_may": "EXCESO GRAVE", "importe": 11503128.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 52}, {"articulo": "LAMINADO PIZZA X 80 GR DH (65531)", "linea": "Inflados", "stock": 1528.46, "consumo_mens": 335.8, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 503.7, "stock_seg": 689.3, "desv": 112.5, "cv": 33.5, "dias_hoy": 136.6, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 1506.07, "dias_fin_mar": 134.6, "estado_fin_mar": "EXCESO", "stock_fin_abr": 1181.47, "dias_fin_abr": 105.6, "estado_fin_abr": "EXCESO", "stock_fin_may": 834.48, "dias_fin_may": 74.6, "estado_fin_may": "OK", "importe": 10930692.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 53}, {"articulo": "LAMINADO QUESO X 80 GR DH (65536)", "linea": "Inflados", "stock": 661.32, "consumo_mens": 629.3, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 944.0, "stock_seg": 1138.7, "desv": 118.02, "cv": 18.8, "dias_hoy": 31.5, "estado_hoy": "CRÍTICO", "stock_fin_mar": 619.37, "dias_fin_mar": 29.5, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": 11.02, "dias_fin_abr": 0.5, "estado_fin_abr": "CRÍTICO", "stock_fin_may": -639.28, "dias_fin_may": -30.5, "estado_fin_may": "QUIEBRE", "importe": 4617926.0, "estado_dir_hoy": "OK", "estado_dir_mar": "OK", "estado_dir_abr": "REPONER", "estado_dir_may": "QUIEBRE", "num": 54}, {"articulo": "LAMINADO RICE SNACK CHEESE FLAVORED x 80gr", "linea": "Inflados", "stock": 804.12, "consumo_mens": 0.0, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 0, "stock_seg": 0, "desv": 0, "cv": 0, "dias_hoy": "", "estado_hoy": "S/CONS", "stock_fin_mar": 804.12, "dias_fin_mar": "", "estado_fin_mar": "S/CONS", "stock_fin_abr": 804.12, "dias_fin_abr": "", "estado_fin_abr": "S/CONS", "stock_fin_may": 804.12, "dias_fin_may": "", "estado_fin_may": "S/CONS", "importe": 9456331.0, "estado_dir_hoy": "S/CONS", "estado_dir_mar": "S/CONS", "estado_dir_abr": "S/CONS", "estado_dir_may": "S/CONS", "num": 55}, {"articulo": "LAMINADO RICE SNACK GRILLED SMOKED MEAT FLAVORED x 80gr", "linea": "Inflados", "stock": 876.05, "consumo_mens": 0.0, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 0, "stock_seg": 0, "desv": 0, "cv": 0, "dias_hoy": "", "estado_hoy": "S/CONS", "stock_fin_mar": 876.05, "dias_fin_mar": "", "estado_fin_mar": "S/CONS", "stock_fin_abr": 876.05, "dias_fin_abr": "", "estado_fin_abr": "S/CONS", "stock_fin_may": 876.05, "dias_fin_may": "", "estado_fin_may": "S/CONS", "importe": 10302217.0, "estado_dir_hoy": "S/CONS", "estado_dir_mar": "S/CONS", "estado_dir_abr": "S/CONS", "estado_dir_may": "S/CONS", "num": 56}, {"articulo": "LAMINADO RICE SNACK SOUR CREAM & ONION x 80gr", "linea": "Inflados", "stock": 852.0, "consumo_mens": 0.0, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 0, "stock_seg": 0, "desv": 0, "cv": 0, "dias_hoy": "", "estado_hoy": "S/CONS", "stock_fin_mar": 852.0, "dias_fin_mar": "", "estado_fin_mar": "S/CONS", "stock_fin_abr": 852.0, "dias_fin_abr": "", "estado_fin_abr": "S/CONS", "stock_fin_may": 852.0, "dias_fin_may": "", "estado_fin_may": "S/CONS", "importe": 18338959.0, "estado_dir_hoy": "S/CONS", "estado_dir_mar": "S/CONS", "estado_dir_abr": "S/CONS", "estado_dir_may": "S/CONS", "num": 57}, {"articulo": "LAMINADO SALAME X 80 GR DH (65535)", "linea": "Inflados", "stock": 271.34, "consumo_mens": 276.1, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 414.1, "stock_seg": 605.8, "desv": 116.2, "cv": 42.1, "dias_hoy": 29.5, "estado_hoy": "CRÍTICO", "stock_fin_mar": 252.94, "dias_fin_mar": 27.5, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": -13.93, "dias_fin_abr": -1.5, "estado_fin_abr": "QUIEBRE", "stock_fin_may": -299.19, "dias_fin_may": -32.5, "estado_fin_may": "QUIEBRE", "importe": 2207354.0, "estado_dir_hoy": "OK", "estado_dir_mar": "OK", "estado_dir_abr": "QUIEBRE", "estado_dir_may": "QUIEBRE", "num": 58}, {"articulo": "LAMINADO SLIM CON SAL DH (46611)", "linea": "Inflados", "stock": 538.48, "consumo_mens": 1026.8, "oc_mar": 1500, "fecha_mar": "27/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 1000, "stock_min": 2053.5, "stock_seg": 2253.9, "desv": 121.46, "cv": 11.8, "dias_hoy": 15.7, "estado_hoy": "CRÍTICO", "stock_fin_mar": 1970.03, "dias_fin_mar": 57.6, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": 977.48, "dias_fin_abr": 28.6, "estado_fin_abr": "CRÍTICO", "stock_fin_may": -83.51, "dias_fin_may": -2.4, "estado_fin_may": "QUIEBRE", "importe": 5553137.0, "estado_dir_hoy": "REPONER", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "QUIEBRE", "num": 59}, {"articulo": "LAMINADO SLIM DULCE DH (46339)", "linea": "Inflados", "stock": 1115.81, "consumo_mens": 769.5, "oc_mar": 1000, "fecha_mar": "27/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 1000, "stock_min": 1538.9, "stock_seg": 1624.6, "desv": 51.96, "cv": 6.8, "dias_hoy": 43.5, "estado_hoy": "CRÍTICO", "stock_fin_mar": 2064.51, "dias_fin_mar": 80.5, "estado_fin_mar": "OK", "stock_fin_abr": 1320.71, "dias_fin_abr": 51.5, "estado_fin_abr": "CRÍTICO", "stock_fin_may": 525.6, "dias_fin_may": 20.5, "estado_fin_may": "CRÍTICO", "importe": 11506975.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 60}, {"articulo": "LAMINADO SLIM SIN SAL DH (46612)", "linea": "Inflados", "stock": 554.28, "consumo_mens": 811.3, "oc_mar": 1000, "fecha_mar": "27/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "60.0", "lead_time_usado": 60.0, "lt_estimado": false, "moq": 1000, "stock_min": 1622.6, "stock_seg": 1759.3, "desv": 82.82, "cv": 10.2, "dias_hoy": 20.5, "estado_hoy": "CRÍTICO", "stock_fin_mar": 1500.19, "dias_fin_mar": 55.5, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": 715.94, "dias_fin_abr": 26.5, "estado_fin_abr": "CRÍTICO", "stock_fin_may": -122.39, "dias_fin_may": -4.5, "estado_fin_may": "QUIEBRE", "importe": 5716119.0, "estado_dir_hoy": "OK", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "QUIEBRE", "num": 61}, {"articulo": "LAMINADO TOSTADITAS C/SAL DH", "linea": "Inflados", "stock": 1118.9, "consumo_mens": 461.4, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 692.1, "stock_seg": 1060.3, "desv": 223.17, "cv": 48.4, "dias_hoy": 72.8, "estado_hoy": "OK", "stock_fin_mar": 1088.14, "dias_fin_mar": 70.8, "estado_fin_mar": "OK", "stock_fin_abr": 642.13, "dias_fin_abr": 41.8, "estado_fin_abr": "CRÍTICO", "stock_fin_may": 165.35, "dias_fin_may": 10.8, "estado_fin_may": "CRÍTICO", "importe": 7310086.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 62}, {"articulo": "LAMINADO TOSTADITAS DULCE DH", "linea": "Inflados", "stock": 1585.88, "consumo_mens": 226.8, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 340.2, "stock_seg": 559.5, "desv": 132.9, "cv": 58.6, "dias_hoy": 209.8, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 1570.76, "dias_fin_mar": 207.8, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 1351.52, "dias_fin_abr": 178.8, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 1117.17, "dias_fin_may": 147.8, "estado_fin_may": "EXCESO GRAVE", "importe": 10360964.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 63}, {"articulo": "LAMINADO TOSTADITAS S S/SAL DH", "linea": "Inflados", "stock": 1735.6, "consumo_mens": 376.3, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "45.0", "lead_time_usado": 45.0, "lt_estimado": false, "moq": "", "stock_min": 564.5, "stock_seg": 784.8, "desv": 133.52, "cv": 35.5, "dias_hoy": 138.4, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 1710.51, "dias_fin_mar": 136.4, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 1346.73, "dias_fin_abr": 107.4, "estado_fin_abr": "EXCESO", "stock_fin_may": 957.85, "dias_fin_may": 76.4, "estado_fin_may": "OK", "importe": 11339096.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 64}, {"articulo": "LPD 1% - LECHE EN POLVO", "linea": "Inflados", "stock": 376.0, "consumo_mens": 442.3, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "30.0", "lead_time_usado": 30.0, "lt_estimado": false, "moq": 500, "stock_min": 442.3, "stock_seg": 729.5, "desv": 174.09, "cv": 39.4, "dias_hoy": 25.5, "estado_hoy": "CRÍTICO", "stock_fin_mar": 346.51, "dias_fin_mar": 23.5, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": -81.04, "dias_fin_abr": -5.5, "estado_fin_abr": "QUIEBRE", "stock_fin_may": -538.08, "dias_fin_may": -36.5, "estado_fin_may": "QUIEBRE", "importe": 1804805.0, "estado_dir_hoy": "OK", "estado_dir_mar": "OK", "estado_dir_abr": "QUIEBRE", "estado_dir_may": "QUIEBRE", "num": 65}, {"articulo": "PIZZA FLAVOR - SABORIZANTE", "linea": "Inflados", "stock": 1616.46, "consumo_mens": 372.4, "oc_mar": 0, "fecha_mar": "", "oc_abr": 1000, "fecha_abr": "04/04", "lead_time": "90.0", "lead_time_usado": 90.0, "lt_estimado": false, "moq": 1000, "stock_min": 1117.1, "stock_seg": 1322.9, "desv": 124.75, "cv": 33.5, "dias_hoy": 130.2, "estado_hoy": "OK", "stock_fin_mar": 1591.64, "dias_fin_mar": 128.2, "estado_fin_mar": "OK", "stock_fin_abr": 2231.68, "dias_fin_abr": 179.8, "estado_fin_abr": "OK", "stock_fin_may": 1846.9, "dias_fin_may": 148.8, "estado_fin_may": "OK", "importe": 26299649.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 66}, {"articulo": "SABORIZANTE JALAPEÑO LIMON VF-318-548-3", "linea": "Inflados", "stock": 2262.06, "consumo_mens": 105.5, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 161.5, "stock_seg": 436.9, "desv": 166.92, "cv": 158.2, "dias_hoy": 643.3, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 2255.03, "dias_fin_mar": 641.3, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 2153.05, "dias_fin_abr": 612.3, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 2044.05, "dias_fin_may": 581.3, "estado_fin_may": "EXCESO GRAVE", "importe": 57843029.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 67}, {"articulo": "SABORIZANTE JAMON", "linea": "Inflados", "stock": 745.3, "consumo_mens": 739.3, "oc_mar": 500, "fecha_mar": "18/03", "oc_abr": 500, "fecha_abr": "16/04", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 1132.0, "stock_seg": 1581.3, "desv": 272.31, "cv": 36.8, "dias_hoy": 30.2, "estado_hoy": "CRÍTICO", "stock_fin_mar": 1196.01, "dias_fin_mar": 48.5, "estado_fin_mar": "BAJO", "stock_fin_abr": 981.36, "dias_fin_abr": 39.8, "estado_fin_abr": "CRÍTICO", "stock_fin_may": 217.43, "dias_fin_may": 8.8, "estado_fin_may": "CRÍTICO", "importe": 14513384.0, "estado_dir_hoy": "OK", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "REPONER", "num": 68}, {"articulo": "SALAME - SABORIZANTE", "linea": "Inflados", "stock": 637.55, "consumo_mens": 239.6, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 366.8, "stock_seg": 534.2, "desv": 101.48, "cv": 42.4, "dias_hoy": 79.8, "estado_hoy": "OK", "stock_fin_mar": 621.58, "dias_fin_mar": 77.8, "estado_fin_mar": "OK", "stock_fin_abr": 389.99, "dias_fin_abr": 48.8, "estado_fin_abr": "BAJO", "stock_fin_may": 142.43, "dias_fin_may": 17.8, "estado_fin_may": "CRÍTICO", "importe": 16383381.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "REPONER", "num": 69}, {"articulo": "SOUR CREAM & ONION FLAVOR - SABORIZANTE", "linea": "Inflados", "stock": 2278.81, "consumo_mens": 1109.7, "oc_mar": 1000, "fecha_mar": "03/03", "oc_abr": 1000, "fecha_abr": "05/04", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": "", "stock_min": 1699.2, "stock_seg": 1928.2, "desv": 138.78, "cv": 12.5, "dias_hoy": 61.6, "estado_hoy": "OK", "stock_fin_mar": 3204.83, "dias_fin_mar": 86.6, "estado_fin_mar": "OK", "stock_fin_abr": 3132.17, "dias_fin_abr": 84.7, "estado_fin_abr": "OK", "stock_fin_may": 1985.52, "dias_fin_may": 53.7, "estado_fin_may": "OK", "importe": 54269188.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 70}, {"articulo": "STREECH AUTOMATICO", "linea": "Inflados", "stock": 5160.5, "consumo_mens": 3279.1, "oc_mar": 5000, "fecha_mar": "18/03", "oc_abr": 0, "fecha_abr": "", "lead_time": "90.0", "lead_time_usado": 90.0, "lt_estimado": false, "moq": 1000, "stock_min": 9837.3, "stock_seg": 9837.3, "desv": 0, "cv": 0, "dias_hoy": 47.2, "estado_hoy": "CRÍTICO", "stock_fin_mar": 9941.89, "dias_fin_mar": 91.0, "estado_fin_mar": "OK", "stock_fin_abr": 6772.1, "dias_fin_abr": 62.0, "estado_fin_abr": "CRÍTICO", "stock_fin_may": 3383.69, "dias_fin_may": 31.0, "estado_fin_may": "CRÍTICO", "importe": 11600804.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "OK", "num": 71}, {"articulo": "STREECH MANUAL INFLADOS", "linea": "Inflados", "stock": 2067.8, "consumo_mens": 881.4, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 45.9, "lt_estimado": true, "moq": 500, "stock_min": 1349.6, "stock_seg": 1460.3, "desv": 67.1, "cv": 7.6, "dias_hoy": 70.4, "estado_hoy": "OK", "stock_fin_mar": 2009.04, "dias_fin_mar": 68.4, "estado_fin_mar": "OK", "stock_fin_abr": 1157.02, "dias_fin_abr": 39.4, "estado_fin_abr": "CRÍTICO", "stock_fin_may": 246.24, "dias_fin_may": 8.4, "estado_fin_may": "CRÍTICO", "importe": 4474099.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "REPONER", "num": 72}, {"articulo": "SUCRALOSA", "linea": "Inflados", "stock": 49.13, "consumo_mens": 8.8, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "90.0", "lead_time_usado": 90.0, "lt_estimado": false, "moq": 1000, "stock_min": 26.3, "stock_seg": 28.1, "desv": 1.08, "cv": 12.3, "dias_hoy": 167.9, "estado_hoy": "OK", "stock_fin_mar": 48.54, "dias_fin_mar": 165.9, "estado_fin_mar": "OK", "stock_fin_abr": 40.06, "dias_fin_abr": 136.9, "estado_fin_abr": "OK", "stock_fin_may": 30.99, "dias_fin_may": 105.9, "estado_fin_may": "OK", "importe": 6894145.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 73}, {"articulo": "CAJA CON IMPRESION GENERICA TOSTADAS RECTANGULARES", "linea": "Libera", "stock": 6222.0, "consumo_mens": 798.0, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 43.0, "lt_estimado": true, "moq": "", "stock_min": 1142.6, "stock_seg": 3295.9, "desv": 1305.03, "cv": 163.5, "dias_hoy": 233.9, "estado_hoy": "EXCESO GRAVE", "stock_fin_mar": 6168.8, "dias_fin_mar": 231.9, "estado_fin_mar": "EXCESO GRAVE", "stock_fin_abr": 5397.4, "dias_fin_abr": 202.9, "estado_fin_abr": "EXCESO GRAVE", "stock_fin_may": 4572.8, "dias_fin_may": 171.9, "estado_fin_may": "EXCESO GRAVE", "importe": 3328770.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 74}, {"articulo": "LAMINADO TOSTADAS C/SAL DH", "linea": "Libera", "stock": 188.9, "consumo_mens": 228.5, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 43.0, "lt_estimado": true, "moq": "", "stock_min": 327.2, "stock_seg": 746.1, "desv": 253.91, "cv": 111.1, "dias_hoy": 24.8, "estado_hoy": "CRÍTICO", "stock_fin_mar": 173.66, "dias_fin_mar": 22.8, "estado_fin_mar": "CRÍTICO", "stock_fin_abr": -47.26, "dias_fin_abr": -6.2, "estado_fin_abr": "QUIEBRE", "stock_fin_may": -283.41, "dias_fin_may": -37.2, "estado_fin_may": "QUIEBRE", "importe": 1327003.0, "estado_dir_hoy": "OK", "estado_dir_mar": "OK", "estado_dir_abr": "QUIEBRE", "estado_dir_may": "QUIEBRE", "num": 75}, {"articulo": "LAMINADO TOSTADAS S S/SAL DH", "linea": "Libera", "stock": 608.61, "consumo_mens": 174.2, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 43.0, "lt_estimado": true, "moq": "", "stock_min": 249.4, "stock_seg": 595.5, "desv": 209.73, "cv": 120.4, "dias_hoy": 104.8, "estado_hoy": "EXCESO", "stock_fin_mar": 597.0, "dias_fin_mar": 102.8, "estado_fin_mar": "EXCESO", "stock_fin_abr": 428.59, "dias_fin_abr": 73.8, "estado_fin_abr": "BAJO", "stock_fin_may": 248.57, "dias_fin_may": 42.8, "estado_fin_may": "CRÍTICO", "importe": 4275494.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 76}, {"articulo": "LAMINADO HARINA x 1/2 kg (56312)", "linea": "Harina", "stock": 69.28, "consumo_mens": 35.2, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 43.0, "lt_estimado": true, "moq": "", "stock_min": 50.5, "stock_seg": 63.3, "desv": 7.74, "cv": 22.0, "dias_hoy": 59.0, "estado_hoy": "OK", "stock_fin_mar": 66.93, "dias_fin_mar": 57.0, "estado_fin_mar": "OK", "stock_fin_abr": 32.87, "dias_fin_abr": 28.0, "estado_fin_abr": "CRÍTICO", "stock_fin_may": -3.55, "dias_fin_may": -3.0, "estado_fin_may": "QUIEBRE", "importe": 629779.0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "OK", "estado_dir_may": "QUIEBRE", "num": 77}, {"articulo": "INSUMO - BOLSA LAMINADA CON VÁLVULA 25KG", "linea": "Harina", "stock": 1646, "consumo_mens": 434.3, "oc_mar": 0, "fecha_mar": "", "oc_abr": 0, "fecha_abr": "", "lead_time": "", "lead_time_usado": 43.0, "lt_estimado": true, "moq": "", "stock_min": 621.9, "stock_seg": 1523.6, "desv": 546.49, "cv": 125.8, "dias_hoy": 113.7, "estado_hoy": "EXCESO", "stock_fin_mar": 1617.04, "dias_fin_mar": 111.7, "estado_fin_mar": "EXCESO", "stock_fin_abr": 1197.19, "dias_fin_abr": 82.7, "estado_fin_abr": "BAJO", "stock_fin_may": 748.38, "dias_fin_may": 51.7, "estado_fin_may": "BAJO", "importe": 0, "estado_dir_hoy": "EXCESO", "estado_dir_mar": "EXCESO", "estado_dir_abr": "EXCESO", "estado_dir_may": "EXCESO", "num": 78}];
+const ESTADOS=['QUIEBRE','CRÍTICO','BAJO','OK','EXCESO','EXCESO GRAVE','S/CONS'];
+const LABELS={QUIEBRE:'Quiebre',CRÍTICO:'Crítico',BAJO:'Bajo',OK:'OK',EXCESO:'Exceso','EXCESO GRAVE':'Exc. Grave','S/CONS':'S/Cons'};
+const BCSS={QUIEBRE:'b-quiebre',CRÍTICO:'b-critico',BAJO:'b-bajo',OK:'b-ok',EXCESO:'b-exceso','EXCESO GRAVE':'b-excgrave','S/CONS':'b-scons'};
+const COLORS={QUIEBRE:'#E24B4A',CRÍTICO:'#D8762A',BAJO:'#D4B800',OK:'#639922',EXCESO:'#378ADD','EXCESO GRAVE':'#1234a0','S/CONS':'#B4B2A9'};
+const DIR_ESTADOS=['QUIEBRE','REPONER','OK','EXCESO','S/CONS'];
+const DIR_LABELS={QUIEBRE:'Quiebre',REPONER:'Reponer',OK:'OK',EXCESO:'Exceso','S/CONS':'S/Cons'};
+const DIR_BCSS={QUIEBRE:'bd-quiebre',REPONER:'bd-reponer',OK:'bd-ok',EXCESO:'bd-exceso','S/CONS':'bd-scons'};
+const DIR_SCSS={QUIEBRE:'sd-quiebre',REPONER:'sd-reponer',OK:'sd-ok',EXCESO:'sd-exceso','S/CONS':'sd-scons'};
+const DIR_COLORS={QUIEBRE:'#E24B4A',REPONER:'#F9A825',OK:'#388E3C',EXCESO:'#EF5350','S/CONS':'#B4B2A9'};
+const LINEAS_ORD=['Envasadora','Inflados','Libera','Harina','Sin asignar'];
+const LINEA_COLORS=['#1565C0','#E65100','#2E7D32','#6A1B9A','#795548'];
+
+function countBy(f){const c={};DATA.forEach(d=>{const v=d[f]||'';c[v]=(c[v]||0)+1;});return c;}
+
+function switchMain(t){
+  document.querySelectorAll('.main-tab').forEach((el,i)=>el.classList.toggle('active',['tablero','direccion','grafico','barras','variab','params'][i]===t));
+  document.querySelectorAll('.main-pane').forEach((el,i)=>el.classList.toggle('active',['pane-tablero','pane-direccion','pane-grafico','pane-barras','pane-variab','pane-params'][i]===`pane-${t}`));
+  if(t==='params') renderParams();
+  if(t==='direccion') renderDireccion();
+  if(t==='grafico') renderGrafico();
+  if(t==='barras') renderBarras();
+  if(t==='variab') renderVariab();
+}
+
+function buildSemaforo(){
+  const periodos=[{label:'HOY',field:'estado_hoy',cls:'p-hoy'},{label:'FIN MARZO',field:'estado_fin_mar',cls:'p-mar'},{label:'FIN ABRIL',field:'estado_fin_abr',cls:'p-abr'},{label:'FIN MAYO',field:'estado_fin_may',cls:'p-may'}];
+  const wrap=document.getElementById('sem-wrap');
+  let html=`<div class="sem-col"><div style="background:#f8f8f4;height:36px;padding:0 14px;font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;border-bottom:1px solid #eee;display:flex;align-items:center">ESTADO</div>`;
+  ESTADOS.forEach(e=>{html+=`<div class="sem-cell ${BCSS[e].replace('b-','s-')}"><span class="estado-lbl">${LABELS[e]}</span></div>`;});
+  html+='</div>';
+  periodos.forEach(p=>{const cnt=countBy(p.field);html+=`<div class="sem-col"><div class="sem-col-header ${p.cls}">${p.label}</div>`;ESTADOS.forEach(e=>{html+=`<div class="sem-cell ${BCSS[e].replace('b-','s-')}"><span class="estado-num">${cnt[e]||0}</span></div>`;});html+='</div>';});
+  wrap.innerHTML=html;
+}
+
+function buildCharts(){
+  const c_hoy=countBy('estado_hoy'),c_mar=countBy('estado_fin_mar'),c_abr=countBy('estado_fin_abr'),c_may=countBy('estado_fin_may');
+  const lbls=ESTADOS.filter(e=>(c_hoy[e]||0)>0);
+  new Chart(document.getElementById('chart-hoy'),{type:'doughnut',data:{labels:lbls.map(e=>LABELS[e]),datasets:[{data:lbls.map(e=>c_hoy[e]),backgroundColor:lbls.map(e=>COLORS[e]),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:12,padding:6}}}}});
+  new Chart(document.getElementById('chart-comp'),{type:'bar',data:{labels:['Hoy','Fin Marzo','Fin Abril','Fin Mayo'],datasets:['QUIEBRE','CRÍTICO','BAJO'].map(e=>({label:LABELS[e],data:[c_hoy[e]||0,c_mar[e]||0,c_abr[e]||0,c_may[e]||0],backgroundColor:COLORS[e],borderRadius:4,barPercentage:.65}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:10},boxWidth:12}}},scales:{x:{ticks:{font:{size:11},color:'#999'},grid:{display:false}},y:{ticks:{font:{size:11},color:'#999'},grid:{color:'rgba(0,0,0,0.04)'}}}}});
+  const urgCount=DATA.filter(d=>['QUIEBRE','CRÍTICO','BAJO'].includes(d.estado_hoy)).length;
+  document.getElementById('tab-urg').textContent=`🔴 Urgentes hoy (${urgCount})`;
+}
+
+function diasBar(val){if(val===''||val===null||isNaN(parseFloat(val)))return'<span style="color:#ddd">—</span>';const v=parseFloat(val);const pct=Math.min(100,Math.max(0,v/90*100));const color=v<0?'#E24B4A':v<5?'#D8762A':v<15?'#D4B800':v<30?'#639922':'#378ADD';return`<div class="dias-bar"><div class="db-track"><div class="db-fill" style="width:${pct}%;background:${color}"></div></div><span class="db-val" style="color:${v<0?'#B71C1C':v<15?'#BF360C':'#555'}">${v.toFixed(1)}d</span></div>`;}
+function fmt(v,dec=0){if(v===''||v===null||v===0)return'—';const n=parseFloat(v);return isNaN(n)?v:n.toLocaleString('es-AR',{maximumFractionDigits:dec});}
+function badge(e){return`<span class="badge ${BCSS[e]||'b-scons'}">${e}</span>`;}
+function badgeDir(e){return`<span class="badge ${DIR_BCSS[e]||'bd-scons'}">${DIR_LABELS[e]||e}</span>`;}
+function moqFmt(v){if(!v||v===''||v==='nan')return'<span style="color:#ddd">—</span>';return`<span class="moq-badge">${parseInt(v).toLocaleString('es-AR')}</span>`;}
+
+function renderGroups(rows,tbodyId,rowFn,colspan){
+  const grupos={};rows.forEach(d=>{if(!grupos[d.linea])grupos[d.linea]=[];grupos[d.linea].push(d);});
+  let html='';
+  LINEAS_ORD.forEach(lin=>{const items=grupos[lin];if(!items||!items.length)return;html+=`<tr class="grp"><td colspan="${colspan}">▶ ${lin.toUpperCase()} — ${items.length} artículo${items.length!==1?'s':''}</td></tr>`;items.forEach(d=>{html+=rowFn(d);});});
+  document.getElementById(tbodyId).innerHTML=html;
+}
+
+let currentTab='todos';
+function switchTab(t){currentTab=t;document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['todos','urgentes','crit-mar','crit-abr','crit-may'][i]===t));renderTable();}
+function resetFil(){document.getElementById('fil-linea').value='';document.getElementById('fil-estado').value='';document.getElementById('fil-buscar').value='';renderTable();}
+function resetDir(){document.getElementById('dir-linea').value='';document.getElementById('dir-estado').value='';document.getElementById('dir-buscar').value='';renderDireccion();}
+
+const URGENTES=['QUIEBRE','CRÍTICO','BAJO'];
+function filterRows(linId,estId,busId,tabFilter){
+  const linea=document.getElementById(linId)?.value||'';
+  const estado=document.getElementById(estId)?.value||'';
+  const buscar=document.getElementById(busId)?.value.toLowerCase()||'';
+  return DATA.filter(d=>{
+    if(linea&&d.linea!==linea)return false;
+    if(estado&&d.estado_hoy!==estado)return false;
+    if(buscar&&!d.articulo.toLowerCase().includes(buscar))return false;
+    if(tabFilter==='urgentes')return URGENTES.includes(d.estado_hoy);
+    if(tabFilter==='crit-mar')return URGENTES.includes(d.estado_fin_mar);
+    if(tabFilter==='crit-abr')return URGENTES.includes(d.estado_fin_abr);
+    if(tabFilter==='crit-may')return URGENTES.includes(d.estado_fin_may);
+    return true;
+  });
+}
+
+function renderTable(){
+  const rows=filterRows('fil-linea','fil-estado','fil-buscar',currentTab);
+  document.getElementById('count-lbl').textContent=`${rows.length} artículo${rows.length!==1?'s':''}`;
+  const lt=d=>d.lt_estimado?`<span class="lt-est" title="Estimado">${d.lead_time_usado}d~</span>`:`${d.lead_time&&d.lead_time!='nan'?d.lead_time+'d':'?'}`;
+  const cv=d=>d.cv>0?d.cv.toFixed(1)+'%':'—';
+  renderGroups(rows,'tbody',d=>`<tr>
+    <td class="num">${d.num}</td><td class="art" title="${d.articulo}">${d.articulo}</td>
+    <td class="right">${fmt(d.stock)}</td><td class="right" style="color:#999;font-size:10.5px">${fmt(d.consumo_mens)}</td>
+    <td class="right" style="color:#999;font-size:10.5px">${cv(d)}</td><td class="right">${moqFmt(d.moq)}</td>
+    <td>${diasBar(d.dias_hoy)}</td><td class="center">${badge(d.estado_hoy)}</td>
+    <td class="right sep-mar" style="color:#555">${d.oc_mar&&d.oc_mar!==0?fmt(d.oc_mar):'—'}</td><td>${diasBar(d.dias_fin_mar)}</td><td class="center">${badge(d.estado_fin_mar)}</td>
+    <td class="right sep-abr" style="color:#555">${d.oc_abr&&d.oc_abr!==0?fmt(d.oc_abr):'—'}</td><td>${diasBar(d.dias_fin_abr)}</td><td class="center">${badge(d.estado_fin_abr)}</td>
+    <td class="sep-may">${diasBar(d.dias_fin_may)}</td><td class="center">${badge(d.estado_fin_may)}</td>
+    <td class="center">${lt(d)}</td>
+  </tr>`,17);
+}
+
+function renderDireccion(){
+  buildSemaforoDir();
+  const rows=filterRows('dir-linea','dir-estado','dir-buscar','todos').filter(d=>{const e=document.getElementById('dir-estado').value;return !e||d.estado_dir_hoy===e;});
+  document.getElementById('dir-count').textContent=`${rows.length} artículo${rows.length!==1?'s':''}`;
+  renderGroups(rows,'dir-tbody',d=>`<tr>
+    <td class="num">${d.num}</td><td class="art" title="${d.articulo}">${d.articulo}</td>
+    <td class="right">${fmt(d.stock)}</td><td class="right" style="color:#999;font-size:10.5px">${fmt(d.consumo_mens)}</td><td class="right">${moqFmt(d.moq)}</td>
+    <td>${diasBar(d.dias_hoy)}</td><td class="center">${badgeDir(d.estado_dir_hoy)}</td>
+    <td class="right sep-mar" style="color:#555">${d.oc_mar&&d.oc_mar!==0?fmt(d.oc_mar):'—'}</td><td>${diasBar(d.dias_fin_mar)}</td><td class="center">${badgeDir(d.estado_dir_mar)}</td>
+    <td class="right sep-abr" style="color:#555">${d.oc_abr&&d.oc_abr!==0?fmt(d.oc_abr):'—'}</td><td>${diasBar(d.dias_fin_abr)}</td><td class="center">${badgeDir(d.estado_dir_abr)}</td>
+    <td class="sep-may">${diasBar(d.dias_fin_may)}</td><td class="center">${badgeDir(d.estado_dir_may)}</td>
+  </tr>`,15);
+}
+
+function buildSemaforoDir(){
+  const periodos=[{label:'HOY',field:'estado_dir_hoy',cls:'p-hoy'},{label:'FIN MARZO',field:'estado_dir_mar',cls:'p-mar'},{label:'FIN ABRIL',field:'estado_dir_abr',cls:'p-abr'},{label:'FIN MAYO',field:'estado_dir_may',cls:'p-may'}];
+  const wrap=document.getElementById('sem-dir');
+  let html=`<div class="sem-col"><div style="background:#f8f8f4;height:36px;padding:0 14px;font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;border-bottom:1px solid #eee;display:flex;align-items:center">ESTADO</div>`;
+  DIR_ESTADOS.forEach(e=>{html+=`<div class="sem-cell ${DIR_SCSS[e]}"><span class="estado-lbl">${DIR_LABELS[e]}</span></div>`;});
+  html+='</div>';
+  periodos.forEach(p=>{const cnt=countBy(p.field);html+=`<div class="sem-col"><div class="sem-col-header ${p.cls}">${p.label}</div>`;DIR_ESTADOS.forEach(e=>{html+=`<div class="sem-cell ${DIR_SCSS[e]}"><span class="estado-num">${cnt[e]||0}</span></div>`;});html+='</div>';});
+  wrap.innerHTML=html;
+}
+
+let chartBarInstance=null;
+function renderGrafico(){
+  const linea=document.getElementById('graf-linea').value;
+  const orden=document.getElementById('graf-orden').value;
+  let rows=DATA.filter(d=>d.estado_hoy!=='S/CONS'&&d.dias_hoy!=='');
+  if(linea)rows=rows.filter(d=>d.linea===linea);
+  if(orden==='dias')rows.sort((a,b)=>parseFloat(b.dias_hoy)-parseFloat(a.dias_hoy));
+  else if(orden==='nombre')rows.sort((a,b)=>a.articulo.localeCompare(b.articulo));
+  else{const O={QUIEBRE:0,CRÍTICO:1,BAJO:2,OK:3,EXCESO:4,'EXCESO GRAVE':5};rows.sort((a,b)=>(O[a.estado_hoy]||9)-(O[b.estado_hoy]||9));}
+  const labels=rows.map(d=>d.articulo.length>32?d.articulo.substring(0,30)+'…':d.articulo);
+  const valores=rows.map(d=>Math.min(parseFloat(d.dias_hoy),180));
+  const barColors=rows.map(d=>(COLORS[d.estado_hoy]||'#ccc')+'99');
+  const barBorders=rows.map(d=>COLORS[d.estado_hoy]||'#ccc');
+  const chartH=Math.max(300,rows.length*22+60);
+  document.getElementById('grafico-container').innerHTML=`<canvas id="chart-barras" style="height:${chartH}px"></canvas>`;
+  if(chartBarInstance){chartBarInstance.destroy();chartBarInstance=null;}
+  const maxVal=Math.max(...valores,50);
+  chartBarInstance=new Chart(document.getElementById('chart-barras').getContext('2d'),{type:'bar',data:{labels,datasets:[{label:'Días de cobertura',data:valores,backgroundColor:barColors,borderColor:barBorders,borderWidth:1.5,borderRadius:3}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>{const d=rows[c.dataIndex];const real=parseFloat(d.dias_hoy);return` ${real.toFixed(1)} días · ${d.estado_hoy} (compras) · ${DIR_LABELS[d.estado_dir_hoy]} (dirección)`;},title:(items)=>rows[items[0].dataIndex].articulo}}},scales:{x:{min:0,max:Math.min(maxVal*1.05,180),ticks:{font:{size:10},color:'#999'},grid:{color:'rgba(0,0,0,0.04)'},title:{display:true,text:'Días de cobertura',font:{size:10},color:'#aaa'}},y:{ticks:{font:{size:10},color:(c)=>{const d=rows[c.index];return d?COLORS[d.estado_hoy]||'#666':'#666';}},grid:{display:false}}}},plugins:[{id:'zonaObjetivo',beforeDraw(chart){const{ctx,chartArea,scales}=chart;if(!chartArea)return;const x20=scales.x.getPixelForValue(20);const x40=scales.x.getPixelForValue(40);ctx.save();ctx.fillStyle='rgba(56,142,60,0.08)';ctx.fillRect(x20,chartArea.top,x40-x20,chartArea.bottom-chartArea.top);ctx.beginPath();ctx.strokeStyle='#388E3C';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.moveTo(x20,chartArea.top);ctx.lineTo(x20,chartArea.bottom);ctx.stroke();ctx.beginPath();ctx.moveTo(x40,chartArea.top);ctx.lineTo(x40,chartArea.bottom);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#388E3C';ctx.font='9px Segoe UI';ctx.textAlign='center';ctx.fillText('20d',x20,chartArea.top-4);ctx.fillText('40d',x40,chartArea.top-4);ctx.restore();}}]});
+  const divergentes=DATA.filter(d=>{if(d.estado_hoy==='S/CONS'||d.dias_hoy==='')return false;const cc=URGENTES.includes(d.estado_hoy);const de=d.estado_dir_hoy==='EXCESO';const dr=['QUIEBRE','REPONER'].includes(d.estado_dir_hoy);const co=['OK','EXCESO','EXCESO GRAVE'].includes(d.estado_hoy);return(cc&&de)||(dr&&co);});
+  let htmlDiv=divergentes.length===0?'<tr><td colspan="7" style="text-align:center;color:#aaa;padding:16px">No hay artículos con criterios divergentes</td></tr>':'';
+  divergentes.forEach(d=>{const cc=URGENTES.includes(d.estado_hoy);const de=d.estado_dir_hoy==='EXCESO';const lt=d.lt_estimado?`${d.lead_time_usado}d~`:`${d.lead_time||'?'}d`;const obs=cc&&de?`⚠️ Compras pide reposición pero dirección ve exceso — LT largo (${d.lead_time_usado}d)`:'ℹ️ Dirección ve necesidad de reponer pero stock técnico es suficiente';htmlDiv+=`<tr><td class="art" title="${d.articulo}" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500">${d.articulo}</td><td class="center">${badge(d.estado_hoy)}</td><td class="center">${badgeDir(d.estado_dir_hoy)}</td><td class="right">${parseFloat(d.dias_hoy).toFixed(1)}d</td><td class="right" style="color:#999;font-size:10.5px">${fmt(d.stock_min)}</td><td class="center" style="font-size:10.5px">${lt}</td><td style="font-size:10.5px;color:#555">${obs}</td></tr>`;});
+  document.getElementById('divergentes-tbody').innerHTML=htmlDiv;
+}
+
+let barras2Instance=null;
+function renderBarras(){
+  const linea=document.getElementById('bar-linea').value;
+  const top20=document.getElementById('bar-top20').checked;
+  let rows=DATA.filter(d=>d.importe>0&&d.estado_hoy!=='S/CONS');
+  if(linea)rows=rows.filter(d=>d.linea===linea);
+  rows=[...rows].sort((a,b)=>b.importe-a.importe);
+  if(top20)rows=rows.slice(0,30);
+  const labels=rows.map(d=>d.articulo.length>28?d.articulo.substring(0,26)+'…':d.articulo);
+  if(barras2Instance){barras2Instance.destroy();barras2Instance=null;}
+  barras2Instance=new Chart(document.getElementById('chart-barras2').getContext('2d'),{data:{labels,datasets:[{type:'bar',label:'Stock (unidades)',data:rows.map(d=>d.stock),backgroundColor:rows.map(d=>(COLORS[d.estado_hoy]||'#1565C0')+'BB'),borderColor:rows.map(d=>COLORS[d.estado_hoy]||'#1565C0'),borderWidth:1,borderRadius:3,yAxisID:'yUnidades',order:2},{type:'line',label:'Importe en stock ($)',data:rows.map(d=>d.importe),borderColor:'#E65100',backgroundColor:'rgba(230,81,0,0.08)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#E65100',pointBorderColor:'#fff',pointBorderWidth:1.5,tension:0.3,fill:true,yAxisID:'yImporte',order:1}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{font:{size:10},boxWidth:14,padding:10}},tooltip:{callbacks:{afterLabel:(c)=>{const d=rows[c.dataIndex];return d?`  Estado: ${d.estado_hoy} · ${d.dias_hoy}d cobertura`:'';},label:(c)=>c.datasetIndex===0?` Unidades: ${parseFloat(c.raw).toLocaleString('es-AR',{maximumFractionDigits:1})}`:` Importe: $${(c.raw/1e6).toFixed(2)}M`}}},scales:{x:{ticks:{font:{size:9},color:'#888',maxRotation:55,minRotation:35},grid:{display:false}},yUnidades:{type:'linear',position:'left',title:{display:true,text:'Stock (unidades)',font:{size:10},color:'#1565C0'},ticks:{font:{size:10},color:'#1565C0',callback:v=>v>=1000?`${(v/1000).toFixed(0)}K`:v},grid:{color:'rgba(0,0,0,0.04)'}},yImporte:{type:'linear',position:'right',title:{display:true,text:'Importe ($)',font:{size:10},color:'#E65100'},ticks:{font:{size:10},color:'#E65100',callback:v=>v>=1e6?`$${(v/1e6).toFixed(0)}M`:`$${(v/1e3).toFixed(0)}K`},grid:{drawOnChartArea:false}}}}});
+  const totalImp=rows.reduce((s,d)=>s+d.importe,0);
+  const top3Imp=rows.slice(0,3);
+  const pctTop3=(top3Imp.reduce((s,d)=>s+d.importe,0)/totalImp*100).toFixed(0);
+  const masUnidades=[...rows].sort((a,b)=>b.stock-a.stock)[0];
+  const menosUnMasImp=[...rows].sort((a,b)=>(b.importe/b.stock)-(a.importe/a.stock))[0];
+  document.getElementById('barras-insight').innerHTML=`<div style="background:#FFF3E0;border-radius:8px;padding:10px 14px;border-left:3px solid #E65100"><div style="font-weight:700;color:#E65100;margin-bottom:3px">💰 Concentración de capital</div><div style="color:#555">Los 3 artículos de mayor importe representan el <strong>${pctTop3}%</strong> del total en esta vista</div></div><div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;border-left:3px solid #1565C0"><div style="font-weight:700;color:#1565C0;margin-bottom:3px">📦 Mayor volumen en unidades</div><div style="color:#555"><strong>${masUnidades?.articulo?.substring(0,35)||'—'}</strong> con ${parseFloat(masUnidades?.stock||0).toLocaleString('es-AR',{maximumFractionDigits:0})} unidades</div></div><div style="background:#F3E5F5;border-radius:8px;padding:10px 14px;border-left:3px solid #7B1FA2"><div style="font-weight:700;color:#7B1FA2;margin-bottom:3px">💎 Mayor valor por unidad</div><div style="color:#555"><strong>${menosUnMasImp?.articulo?.substring(0,35)||'—'}</strong> — $${((menosUnMasImp?.importe||0)/(menosUnMasImp?.stock||1)/1000).toFixed(1)}K por unidad</div></div>`;
+  const impPorLinea={};const artPorLinea={};
+  DATA.filter(d=>d.importe>0).forEach(d=>{impPorLinea[d.linea]=(impPorLinea[d.linea]||0)+d.importe;artPorLinea[d.linea]=(artPorLinea[d.linea]||0)+1;});
+  const totalImpAll=Object.values(impPorLinea).reduce((s,v)=>s+v,0);
+  const donutLabels=LINEAS_ORD.filter(l=>impPorLinea[l]>0);
+  if(window._donutInstance){window._donutInstance.destroy();}
+  window._donutInstance=new Chart(document.getElementById('chart-linea-donut'),{type:'doughnut',data:{labels:donutLabels,datasets:[{data:donutLabels.map(l=>impPorLinea[l]),backgroundColor:donutLabels.map((_,i)=>LINEA_COLORS[i]),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:12,padding:6}},tooltip:{callbacks:{label:(c)=>`$${(c.raw/1e6).toFixed(1)}M (${(c.raw/totalImpAll*100).toFixed(1)}%)`}}}}});
+  let htmlLinea='';
+  [...donutLabels].sort((a,b)=>impPorLinea[b]-impPorLinea[a]).forEach((l,i)=>{const imp=impPorLinea[l];const pct=(imp/totalImpAll*100).toFixed(1);const color=LINEA_COLORS[LINEAS_ORD.indexOf(l)];htmlLinea+=`<tr style="border-bottom:.5px solid #f0f0ec"><td style="padding:5px 8px;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span>${l}</td><td style="padding:5px 8px;text-align:right;font-weight:600">$${(imp/1e6).toFixed(2)}M</td><td style="padding:5px 8px;text-align:right;color:#888">${pct}%</td><td style="padding:5px 8px;text-align:right;color:#aaa">${artPorLinea[l]}</td></tr>`;});
+  document.getElementById('linea-detalle').innerHTML=htmlLinea;
+  const top5=[...DATA].filter(d=>d.importe>0).sort((a,b)=>b.importe-a.importe).slice(0,5);
+  document.getElementById('top5-linea').innerHTML=top5.map(d=>{const pct=(d.importe/totalImpAll*100).toFixed(1);const lc=LINEA_COLORS[LINEAS_ORD.indexOf(d.linea)]||'#999';return`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:.5px solid #f5f5f5"><span style="display:flex;align-items:center;gap:5px;overflow:hidden"><span style="width:6px;height:6px;border-radius:50%;background:${lc};flex-shrink:0;display:inline-block"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10.5px" title="${d.articulo}">${d.articulo.substring(0,32)}</span></span><span style="flex-shrink:0;margin-left:8px;font-size:10.5px;font-weight:600">$${(d.importe/1e6).toFixed(1)}M <span style="color:#aaa;font-weight:400">(${pct}%)</span></span></div>`;}).join('');
+}
+
+function renderVariab(){
+  const linea=document.getElementById('var-linea').value;
+  let rows=DATA.filter(d=>d.importe>0&&d.cv>0&&d.estado_hoy!=='S/CONS');
+  if(linea)rows=rows.filter(d=>d.linea===linea);
+  const medianCV=[...rows].map(d=>d.cv).sort((a,b)=>a-b)[Math.floor(rows.length/2)];
+  const medianImp=[...rows].map(d=>d.importe).sort((a,b)=>a-b)[Math.floor(rows.length/2)];
+  const cuads={rr:{titulo:'🔴 Caro + Impredecible',sub:'Alto importe · Alta variabilidad',bg:'#FFEBEE',border:'#C62828',color:'#C62828',items:[]},gr:{titulo:'🟢 Caro + Predecible',sub:'Alto importe · Baja variabilidad',bg:'#E8F5E9',border:'#2E7D32',color:'#2E7D32',items:[]},yr:{titulo:'🟡 Barato + Impredecible',sub:'Bajo importe · Alta variabilidad',bg:'#FFF9C4',border:'#F9A825',color:'#E65100',items:[]},pr:{titulo:'🟣 Barato + Predecible',sub:'Bajo importe · Baja variabilidad',bg:'#F3E5F5',border:'#7B1FA2',color:'#7B1FA2',items:[]}};
+  rows.forEach(d=>{const altoCV=d.cv>medianCV;const altoImp=d.importe>medianImp;const key=altoImp?(altoCV?'rr':'gr'):(altoCV?'yr':'pr');cuads[key].items.push(d);});
+  Object.values(cuads).forEach(c=>c.items.sort((a,b)=>b.importe-a.importe));
+  let html='';
+  ['rr','gr','yr','pr'].forEach(k=>{const c=cuads[k];const itemsHtml=c.items.length===0?'<div style="color:#bbb;font-size:10.5px;padding:8px 0">Sin artículos en este cuadrante</div>':c.items.map(d=>{const lc=LINEA_COLORS[LINEAS_ORD.indexOf(d.linea)]||'#999';const riesgo=d.importe*d.cv/100;return`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid rgba(0,0,0,.06)"><div style="overflow:hidden;margin-right:8px"><div style="font-size:10.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${d.articulo}">${d.articulo}</div><div style="font-size:9.5px;color:#999;display:flex;gap:8px;margin-top:1px"><span style="display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:${lc};display:inline-block"></span>${d.linea}</span><span>CV: <strong style="color:${c.color}">${d.cv.toFixed(0)}%</strong></span><span class="badge ${BCSS[d.estado_hoy]}" style="font-size:8px;padding:1px 5px">${d.estado_hoy}</span></div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:11px;font-weight:700">$${(d.importe/1e6).toFixed(1)}M</div><div style="font-size:9px;color:#aaa">riesgo $${(riesgo/1e6).toFixed(1)}M</div></div></div>`;}).join('');html+=`<div style="background:${c.bg};border:1.5px solid ${c.border};border-radius:12px;padding:14px 16px"><div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:${c.color}">${c.titulo}</div><div style="font-size:10px;color:#888;margin-top:2px">${c.sub} · <strong>${c.items.length}</strong> artículo${c.items.length!==1?'s':''}</div></div><div style="max-height:320px;overflow-y:auto">${itemsHtml}</div></div>`;});
+  document.getElementById('mapa-cuadrantes').innerHTML=html;
+}
+
+function renderParams(){
+  const buscar=document.getElementById('buscar-params')?.value.toLowerCase()||'';
+  const rows=DATA.filter(d=>!buscar||d.articulo.toLowerCase().includes(buscar));
+  const grupos={};rows.forEach(d=>{if(!grupos[d.linea])grupos[d.linea]=[];grupos[d.linea].push(d);});
+  let html='';
+  LINEAS_ORD.forEach(lin=>{const items=grupos[lin];if(!items||!items.length)return;html+=`<tr><td colspan="5" style="background:#ECEFF1;font-weight:700;font-size:10px;color:#455A64;padding:4px 12px;border-top:1px solid #CFD8DC">▶ ${lin.toUpperCase()}</td></tr>`;items.forEach(d=>{const diff=d.stock_seg!==d.stock_min&&d.stock_seg>0;html+=`<tr><td title="${d.articulo}" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.articulo}</td><td style="text-align:right;font-variant-numeric:tabular-nums">${fmt(d.stock_min)}</td><td style="text-align:right;font-variant-numeric:tabular-nums;color:${diff?'#1565C0':'#aaa'}">${diff?fmt(d.stock_seg):'='}</td><td style="text-align:right;font-variant-numeric:tabular-nums;color:#888">${d.desv>0?fmt(d.desv,1):'—'}</td><td style="text-align:right;color:#888">${d.cv>0?d.cv.toFixed(1)+'%':'—'}</td></tr>`;});});
+  document.getElementById('params-tbody').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-ACTUALIZACIÓN DE STOCK DESDE SQL (Railway)
+// ═══════════════════════════════════════════════════════════════
+const RAILWAY_URL = 'https://tablero-insumos-production.up.railway.app';
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function calcEstadoSQL(stock, stock_min, stock_seg, consumo_mens) {
+  if (!consumo_mens) return 'S/CONS';
+  if (stock < 0) return 'QUIEBRE';
+  if (stock < stock_min) return 'CRÍTICO';
+  if (stock < stock_seg) return 'BAJO';
+  const ratio = stock / stock_min;
+  if (ratio < 2) return 'OK';
+  if (ratio < 3) return 'EXCESO';
+  return 'EXCESO GRAVE';
+}
+
+function calcDirSQL(stock, stock_min, consumo_mens, lt) {
+  if (!consumo_mens) return 'S/CONS';
+  const dias = stock / (consumo_mens / 30);
+  if (dias < 0) return 'QUIEBRE';
+  if (dias < lt) return 'REPONER';
+  if (stock / stock_min < 3) return 'OK';
+  return 'EXCESO';
+}
+
+function parseFecha(s) {
+  if (!s) return null;
+  const p = s.split('/');
+  if (p.length === 3) return new Date(+p[2], +p[1]-1, +p[0]);
+  return new Date(s);
+}
+
+function recalcSQL(item, newStock) {
+  const d = Object.assign({}, item);
+  d.stock = newStock;
+  const cd = d.consumo_mens / 30;
+  d.dias_hoy = cd > 0 ? Math.round(newStock / cd * 10) / 10 : null;
+  d.estado_hoy = calcEstadoSQL(newStock, d.stock_min, d.stock_seg, d.consumo_mens);
+  d.estado_dir_hoy = calcDirSQL(newStock, d.stock_min, d.consumo_mens, d.lead_time_usado);
+
+  const now = new Date(); now.setHours(0,0,0,0);
+  const y = now.getFullYear(), m = now.getMonth();
+  const periodos = [
+    { key: 'mar', fin: new Date(y, m+1, 0) },
+    { key: 'abr', fin: new Date(y, m+2, 0) },
+    { key: 'may', fin: new Date(y, m+3, 0) },
+  ];
+  for (const p of periodos) {
+    const days = Math.max(0, (p.fin - now) / 86400000);
+    let oc = 0;
+    const fd_mar = parseFecha(d.fecha_mar), fd_abr = parseFecha(d.fecha_abr);
+    if (fd_mar && fd_mar <= p.fin) oc += (d.oc_mar || 0);
+    if (fd_abr && fd_abr <= p.fin) oc += (d.oc_abr || 0);
+    const sf = Math.round((newStock - days * cd + oc) * 100) / 100;
+    const df = cd > 0 ? Math.round(sf / cd * 10) / 10 : null;
+    d[`stock_fin_${p.key}`] = sf;
+    d[`dias_fin_${p.key}`] = df;
+    d[`estado_fin_${p.key}`] = calcEstadoSQL(sf, d.stock_min, d.stock_seg, d.consumo_mens);
+    d[`estado_dir_${p.key}`] = calcDirSQL(sf, d.stock_min, d.consumo_mens, d.lead_time_usado);
+  }
+  return d;
+}
+
+async function init() {
+  const sub = document.querySelector('.topbar .sub');
+  const origSub = sub ? sub.innerHTML : '';
+  try {
+    const resp = await fetch(RAILWAY_URL + '/api/stock');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const { fecha, stock } = await resp.json();
+    let ok = 0;
+    for (let i = 0; i < DATA.length; i++) {
+      const art = DATA[i].articulo;
+      const ns = stock[art] !== undefined ? stock[art]
+               : stock[art.trim().replace(/\s+/g,' ')] !== undefined ? stock[art.trim().replace(/\s+/g,' ')]
+               : undefined;
+      if (ns !== undefined) { DATA[i] = recalcSQL(DATA[i], ns); ok++; }
+    }
+    if (sub) sub.innerHTML = origSub.replace(/Stock al [^·]+·/, `Stock al ${fecha} ·`) +
+      `<br><span style="font-size:10px;color:#1B5E20">✓ Stock actualizado desde SQL — ${ok} artículos</span>`;
+  } catch(e) {
+    console.error('Error SQL stock:', e);
+    if (sub) sub.innerHTML = origSub +
+      `<br><span style="font-size:10px;color:#B71C1C">⚠ No se pudo actualizar desde SQL — mostrando último Excel</span>`;
+  }
+
+  buildSemaforo();
+  buildCharts();
+  renderTable();
+
+  // Actualizar labels de período a meses actuales en el DOM
+  const now = new Date(), m = now.getMonth();
+  setTimeout(() => {
+    const hdrs = document.querySelectorAll('.sem-col-header');
+    if (hdrs.length >= 4) {
+      hdrs[1].textContent = 'FIN ' + MESES[m].toUpperCase();
+      hdrs[2].textContent = 'FIN ' + MESES[(m+1)%12].toUpperCase();
+      hdrs[3].textContent = 'FIN ' + MESES[(m+2)%12].toUpperCase();
+    }
+  }, 50);
+}
+
+init();
+</script>
+</body>
+</html>
