@@ -1,0 +1,7 @@
+node_modules/
+functions/node_modules/
+.firebase/
+*.log
+tmp_stock.json
+recovered_data.json
+accesos.json
