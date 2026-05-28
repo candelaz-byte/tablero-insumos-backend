@@ -132,7 +132,7 @@ const CONSUMO_KG = {
   'STREECH MANUAL INFLADOS (OLD)':                     0.03,
   'PROVOLETA FLAVOR - SABORIZANTE':                    null,
   'LAM TC 42/70(TERMOCONTRAIBLE ENVASADORA)':          0.0056,
-  'TREHALOSA':                                         null,
+  'TREHALOSA':                                         0.012,
 };
 
 // ─── Normalizar nombre: quita espacios extra, código "(12345)" al final y punto final ──
