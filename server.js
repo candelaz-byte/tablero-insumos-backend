@@ -145,6 +145,59 @@ function normalizeNombre(s) {
     .trimEnd();
 }
 
+// ─── Cache de consumos desde SQL ─────────────────────────────────────────────
+let consumosSQL = {};                          // { nombreNormalizado: consumo_kg }
+let consumosActualizadoEn = null;
+const CONSUMOS_TTL_MS = 6 * 60 * 60 * 1000;   // refrescar cada 6 horas
+
+async function cargarConsumos() {
+  try {
+    const p = await getPool();
+    const result = await p.request().query(`
+      SELECT
+        d.insumoid,
+        d.insumonombre,
+        AVG(b.Cantidad / NULLIF(p.Peso, 0)) AS consumo_por_kg,
+        COUNT(*) AS n
+      FROM BSAFormulaProducto b
+      JOIN DHformula d ON b.FormulaID = d.formulaid
+                      AND b.ProductoID = d.insumoid
+      JOIN BSProducto p ON p.USR_Formula = b.FormulaID
+                       AND p.Peso > 0
+      WHERE b.Cantidad > 0
+      GROUP BY d.insumoid, d.insumonombre
+    `);
+    const nuevo = {};
+    for (const row of result.recordset) {
+      const val = row.consumo_por_kg;
+      if (val != null && val > 0) {
+        nuevo[normalizeNombre(row.insumonombre)] = +val.toFixed(8);
+      }
+    }
+    consumosSQL = nuevo;
+    consumosActualizadoEn = new Date();
+    console.log(`[consumos] ${Object.keys(nuevo).length} insumos cargados desde SQL (${consumosActualizadoEn.toLocaleTimeString('es-AR')})`);
+  } catch (err) {
+    console.error('[consumos] Error al cargar desde SQL:', err.message);
+    // conserva el cache anterior si existe
+  }
+}
+
+// Carga inicial + refresco periódico
+function iniciarConsumos() {
+  cargarConsumos();
+  setInterval(cargarConsumos, CONSUMOS_TTL_MS);
+}
+
+// Helper: SQL tiene prioridad; CONSUMO_KG es fallback de emergencia
+function getConsumo(nombre, productoRaw) {
+  return consumosSQL[nombre]
+      ?? consumosSQL[productoRaw]
+      ?? CONSUMO_KG[nombre]
+      ?? CONSUMO_KG[productoRaw]
+      ?? null;
+}
+
 // ─── Lista de insumos activos (fuente: cubo.xls) ─────────────────────────────
 const INSUMOS_ACTIVOS = new Set([
   'CAJA HARINA','BASES CARTON PARA ARROZ','BOLSA CRISTAL 52x70 x 100 mic CM - EXPO',
@@ -289,7 +342,7 @@ app.get('/api/sin-consumo', async (req, res) => {
       ORDER BY [${COL.producto}]
     `);
     const sinConsumo = result.recordset
-      .filter(r => !CONSUMO_KG[r.producto])
+      .filter(r => !getConsumo(normalizeNombre(r.producto), r.producto))
       .map(r => r.producto);
     res.json(sinConsumo);
   } catch (err) {
@@ -332,7 +385,7 @@ app.get('/api/insumos', async (req, res) => {
       })
       .map(r => {
         const nombre  = normalizeNombre(r.producto);
-        const consumo = CONSUMO_KG[nombre] ?? CONSUMO_KG[r.producto] ?? null;
+        const consumo = getConsumo(nombre, r.producto);
         const stock   = r.stock ?? 0;
         const rend    = consumo ? +(stock / consumo).toFixed(2) : null;
         return {
@@ -493,9 +546,28 @@ app.get('/api/pt-envasadora', async (req, res) => {
   }
 });
 
+// ─── GET /api/consumos ────────────────────────────────────────────────────────
+// Debug: muestra los consumos actualmente cargados desde SQL
+app.get('/api/consumos', (req, res) => {
+  res.json({
+    actualizadoEn: consumosActualizadoEn,
+    totalSQL:      Object.keys(consumosSQL).length,
+    totalFallback: Object.keys(CONSUMO_KG).length,
+    sql:      consumosSQL,
+    fallback: CONSUMO_KG,
+  });
+});
+
+// Forzar recarga inmediata de consumos
+app.post('/api/consumos/refresh', async (req, res) => {
+  await cargarConsumos();
+  res.json({ ok: true, actualizadoEn: consumosActualizadoEn, total: Object.keys(consumosSQL).length });
+});
+
 // ─── Inicio del servidor ──────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Tablero Insumos corriendo en http://localhost:${PORT}`);
   console.log(`Schema disponible en http://localhost:${PORT}/api/schema`);
+  iniciarConsumos();
 });
