@@ -164,6 +164,7 @@ async function cargarConsumos() {
                       AND b.ProductoID = d.insumoid
       JOIN BSProducto p ON p.USR_Formula = b.FormulaID
                        AND p.Peso > 0
+                       AND p.Nombre NOT LIKE '%TON%'
       WHERE b.Cantidad > 0
       GROUP BY d.insumoid, d.insumonombre
     `);
@@ -568,6 +569,7 @@ app.get('/api/consumos-raw', async (req, res) => {
                       AND b.ProductoID = d.insumoid
       JOIN BSProducto p ON p.USR_Formula = b.FormulaID
                        AND p.Peso > 0
+                       AND p.Nombre NOT LIKE '%TON%'
       WHERE b.Cantidad > 0
         ${filtro ? `AND d.insumonombre LIKE '%${filtro.replace(/'/g,"''")}%'` : ''}
       ORDER BY d.insumonombre, p.Nombre
