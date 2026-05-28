@@ -546,6 +546,38 @@ app.get('/api/pt-envasadora', async (req, res) => {
   }
 });
 
+// ─── GET /api/consumos-raw ────────────────────────────────────────────────────
+// Debug: muestra cada fila del JOIN sin agrupar (para verificar qué productos
+// contribuyen al cálculo de cada insumo)
+app.get('/api/consumos-raw', async (req, res) => {
+  const filtro = req.query.insumo || '';
+  try {
+    const p = await getPool();
+    const result = await p.request().query(`
+      SELECT
+        d.insumoid,
+        d.insumonombre,
+        b.FormulaID,
+        b.Cantidad,
+        p.Codigo    AS producto_codigo,
+        p.Nombre    AS producto_nombre,
+        p.Peso      AS producto_peso,
+        b.Cantidad / NULLIF(p.Peso, 0) AS consumo_calculado
+      FROM BSAFormulaProducto b
+      JOIN DHformula d ON b.FormulaID = d.formulaid
+                      AND b.ProductoID = d.insumoid
+      JOIN BSProducto p ON p.USR_Formula = b.FormulaID
+                       AND p.Peso > 0
+      WHERE b.Cantidad > 0
+        ${filtro ? `AND d.insumonombre LIKE '%${filtro.replace(/'/g,"''")}%'` : ''}
+      ORDER BY d.insumonombre, p.Nombre
+    `);
+    res.json(result.recordset);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── GET /api/consumos ────────────────────────────────────────────────────────
 // Debug: muestra los consumos actualmente cargados desde SQL
 app.get('/api/consumos', (req, res) => {
