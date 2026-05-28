@@ -166,6 +166,17 @@ async function cargarConsumos() {
                        AND p.Peso > 0
                        AND p.Nombre NOT LIKE '%TON%'
       WHERE b.Cantidad > 0
+        -- Para cada insumo, usar solo el tamaño de producto mas pequeno (unidad retail principal).
+        -- Evita mezclar bolsas de 500g con cajas de 1kg en el mismo promedio.
+        AND p.Peso = (
+          SELECT MIN(p2.Peso)
+          FROM BSAFormulaProducto b2
+          JOIN BSProducto p2 ON p2.USR_Formula = b2.FormulaID
+                             AND p2.Peso > 0
+                             AND p2.Nombre NOT LIKE '%TON%'
+          WHERE b2.ProductoID = b.ProductoID
+            AND b2.Cantidad > 0
+        )
       GROUP BY d.insumoid, d.insumonombre
     `);
     const nuevo = {};
